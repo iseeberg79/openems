@@ -142,7 +142,7 @@ public class IoShellyPlusPmImpl extends AbstractOpenemsComponent implements IoSh
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 			-> this.calculateEnergy();
 		case EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE //
-			-> this.executeWrite(this.getRelayChannel(), 0);
+			-> this.executeWrite(this.getRelayChannel(), Integer.valueOf(channel));
 		}
 	}
 
