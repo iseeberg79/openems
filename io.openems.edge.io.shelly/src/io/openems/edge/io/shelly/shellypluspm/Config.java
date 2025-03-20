@@ -30,7 +30,7 @@ import io.openems.edge.meter.api.SinglePhase;
 	boolean inverted() default false;	
 	
 	@AttributeDefinition(name = "Channel", description = "Channel")
-	byte channel() default 0;	
+	int channel() default 0;	
 
 	@AttributeDefinition(name = "Meter-Type", description = "What is measured by this Meter?")
 	MeterType type() default MeterType.CONSUMPTION_METERED;

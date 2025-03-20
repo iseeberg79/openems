@@ -75,7 +75,7 @@ public class IoShellyPlusPmImpl extends AbstractOpenemsComponent implements IoSh
 	private BridgeHttpFactory httpBridgeFactory;
 	private BridgeHttp httpBridge;
 	private int powerScale = 1;
-	private byte channel;
+	private int channel = 0;
 
 	public IoShellyPlusPmImpl() {
 		super(//
