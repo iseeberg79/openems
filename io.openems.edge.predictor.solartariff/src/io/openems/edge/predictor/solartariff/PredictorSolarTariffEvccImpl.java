@@ -174,7 +174,6 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				}
 				log.debug("loop completed: " + i + " iterations");
 
-				Integer current = hourlySolarData.firstEntry().getValue();
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
 						.setNextValue(values[0]);
 
