@@ -1,9 +1,13 @@
 package io.openems.edge.predictor.solartariff;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.Map.Entry;
+import java.util.TimeZone;
 import java.util.TreeMap;
 
 import org.osgi.service.component.ComponentContext;
@@ -44,8 +48,9 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 			.getLogger(PredictorSolarTariffEvccImpl.class);
 
 	private boolean executed = false;
-	private LocalDateTime prevHour = LocalDateTime.now();
-	private final TreeMap<LocalDateTime, Integer> hourlySolarData = new TreeMap<>();
+	private ZonedDateTime prevHour = LocalDateTime.now()
+			.atZone(ZoneId.of("UTC"));
+	private final TreeMap<ZonedDateTime, Integer> hourlySolarData = new TreeMap<>();
 	Prediction cachedPrediction;
 
 	@Reference
@@ -89,10 +94,11 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 	protected Prediction createNewPrediction(ChannelAddress channelAddress) {
 		try {
 			log.info("SolarForecast.createNewPrediction is called.");
-			LocalDateTime currentHour = LocalDateTime
+			LocalDateTime localCurrentHour = LocalDateTime
 					.now(this.componentManager.getClock()).withNano(0)
 					.withMinute(0).withSecond(0);
 			ZoneId zoneId = ZoneId.of("UTC");
+			ZonedDateTime currentHour = localCurrentHour.atZone(zoneId);
 
 			JsonArray js = null;
 
@@ -115,21 +121,23 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				for (int i = 0; i < js.size(); i++) {
 					JsonElement timeElement = js.get(i).getAsJsonObject()
 							.get("start");
-					OffsetDateTime utcTime = OffsetDateTime
-							.parse(timeElement.getAsString()); // UTC Zeit
-																// parsen
-					LocalDateTime localTime = utcTime.toLocalDateTime(); // Zeit
-																			// in
-																			// LocalDateTime
-																			// konvertieren
+
+					// Parse den String in ZonedDateTime
+					ZonedDateTime zonedDateTime = ZonedDateTime
+							.parse(timeElement.getAsString());
+
+					// Konvertiere nach UTC
+					ZonedDateTime utcDateTime = zonedDateTime
+							.withZoneSameInstant(ZoneId.of("UTC"));
 
 					JsonElement price = js.get(i).getAsJsonObject()
 							.get("price");
-
 					Integer power = price.getAsInt();
-					log.debug("SolarForecast prediction: " + localTime + " "
+					log.debug("SolarForecast prediction: " + utcDateTime + " "
 							+ power + " Wh");
-					hourlySolarData.put(localTime, power);
+
+					hourlySolarData.put(utcDateTime, power);
+
 				}
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED)
 						.setNextValue(true);
@@ -142,7 +150,8 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 			}
 
 			if (hourlySolarData != null && !hourlySolarData.isEmpty()) {
-				//System.out.println("SolarForecastcreateNewPrediction transforming");
+				// System.out.println("SolarForecastcreateNewPrediction
+				// transforming");
 				log.debug("SolarForecast.createNewPrediction transforming");
 
 				// Create an array to store the forecast values for the next 192
@@ -150,14 +159,13 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				var values = new Integer[192];
 
 				int i = 0;
-				for (Entry<LocalDateTime, Integer> entry : hourlySolarData
+				for (Entry<ZonedDateTime, Integer> entry : hourlySolarData
 						.entrySet()) {
 					// System.out.println("loop processing...");
-					log.debug("loop processing[" + i + "]: " + entry.getKey().atZone(zoneId));
-					if (!entry.getKey().atZone(zoneId)
-							.isBefore(currentHour.atZone(zoneId))
+					log.debug("loop processing[" + i + "]: " + entry.getKey());
+					if (!entry.getKey().isBefore(currentHour)
 							&& i < values.length) {
-						// convert hourly values in 15min steps 
+						// convert hourly values in 15min steps
 						values[i++] = entry.getValue();
 						values[i++] = entry.getValue();
 						values[i++] = entry.getValue();
@@ -170,10 +178,10 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
 						.setNextValue(values[0]);
 
-				log.debug("current PV energy prediction: " + values[0] + " at: " + currentHour.atZone(zoneId));
+				log.debug("current PV energy prediction: " + values[0] + " at: "
+						+ currentHour);
 
-				Prediction prediction = Prediction
-						.from(currentHour.atZone(zoneId), values);
+				Prediction prediction = Prediction.from(currentHour, values);
 
 				cachedPrediction = prediction;
 
