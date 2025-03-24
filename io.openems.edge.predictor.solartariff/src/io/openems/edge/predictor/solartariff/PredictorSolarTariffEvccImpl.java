@@ -1,13 +1,9 @@
 package io.openems.edge.predictor.solartariff;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Date;
 import java.util.Map.Entry;
-import java.util.TimeZone;
 import java.util.TreeMap;
 
 import org.osgi.service.component.ComponentContext;
