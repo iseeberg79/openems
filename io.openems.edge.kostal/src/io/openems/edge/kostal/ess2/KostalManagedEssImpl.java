@@ -2,6 +2,8 @@ package io.openems.edge.kostal.ess2;
 
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,8 @@ import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.sunspec.DefaultSunSpecModel;
 import io.openems.edge.bridge.modbus.sunspec.SunSpecModel;
+import io.openems.edge.common.channel.IntegerReadChannel;
+import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
@@ -48,7 +52,8 @@ import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.kostal.ess.KostalManagedESS;
+import io.openems.edge.kostal.common.AbstractSunSpecEss;
+import io.openems.edge.kostal.enums.ControlMode;
 import io.openems.edge.kostal.ess2.charger.KostalDcCharger;
 import io.openems.edge.pvinverter.api.ManagedSymmetricPvInverter;
 import io.openems.edge.timedata.api.Timedata;
@@ -62,7 +67,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 
 @EventTopics({ //
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE, //
-// EdgeEventConstants.TOPIC_CYCLE_BEFORE_CONTROLLERS //
+		EdgeEventConstants.TOPIC_CYCLE_BEFORE_CONTROLLERS //
 })
 
 public class KostalManagedEssImpl extends AbstractSunSpecEss
@@ -81,15 +86,19 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 	private final List<KostalDcCharger> chargers = new ArrayList<>();
 
 	// Hardware-Limits
-	protected static final int HW_MAX_APPARENT_POWER = 10000;
-	protected static final int HW_ALLOWED_CHARGE_POWER = -5000;
-	protected static final int HW_ALLOWED_DISCHARGE_POWER = 5000;
-
-	private int cycleCounter = 60;
+	protected static final int HW_MAX_APPARENT_POWER = 5000;
+	protected static final int HW_ALLOWED_CHARGE_POWER = -2500;
+	protected static final int HW_ALLOWED_DISCHARGE_POWER = 2500;
 
 	private Config config;
+	private static int WATCHDOG_SECONDS = 30;
 
-	private int lastPower = 0;
+	private int cycleCounter = 60;
+	private Integer lastSetPower;
+	private Instant lastApplyPower = Instant.MIN;
+
+	private ControlMode controlMode;
+	private int minsoc = 5;
 
 	@Reference
 	private Power power;
@@ -98,8 +107,8 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 			.<SunSpecModel, Priority>builder()
 			.put(DefaultSunSpecModel.S_1, Priority.LOW) //
 			.put(DefaultSunSpecModel.S_103, Priority.LOW) //
-			.put(DefaultSunSpecModel.S_113, Priority.LOW) //
-			.put(DefaultSunSpecModel.S_120, Priority.LOW) //
+			// .put(DefaultSunSpecModel.S_113, Priority.LOW) //
+			// .put(DefaultSunSpecModel.S_120, Priority.LOW) //
 			// .put(DefaultSunSpecModel.S_123, Priority.LOW) //
 			// .put(DefaultSunSpecModel.S_203, Priority.LOW) //
 			.put(DefaultSunSpecModel.S_802, Priority.LOW) //
@@ -112,6 +121,8 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
+	private int targetDiff = 200;
+	private boolean managed = false;
 
 	public KostalManagedEssImpl() throws OpenemsException {
 		super(//
@@ -124,7 +135,6 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 				KostalManagedEss.ChannelId.values());
 
 		this.addStaticModbusTasks(this.getModbusProtocol());
-
 	}
 
 	@Activate
@@ -136,6 +146,29 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 			return;
 		}
 		this.config = config;
+		this.controlMode = config.controlMode();
+		this.minsoc = config.minsoc();
+		WATCHDOG_SECONDS = config.watchdog();
+
+		try {
+			this._setMaxApparentPower(HW_MAX_APPARENT_POWER);
+			this._setMaxDischargePower(HW_ALLOWED_DISCHARGE_POWER);
+			this._setMaxChargePower(HW_ALLOWED_CHARGE_POWER * -1);
+
+			if (isManaged()) {
+				System.out
+						.println("--> initially setting charge power to zero");
+				try {
+					// initialize
+					this.applyPower(0, 0);
+				} catch (OpenemsNamedException e) {
+					e.printStackTrace();
+				}
+			}
+
+		} catch (OpenemsNamedException e) {
+			// e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -161,61 +194,74 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 	@Override
 	public void applyPower(int activePowerWanted, int reactivePowerWanted)
 			throws OpenemsNamedException {
-		this.cycleCounter++;
 
 		// Using separate channel for the demanded charge/discharge power
 		this._setChargePowerWanted(activePowerWanted);
 
 		// Read-only mode -> switch to max. self consumption automatic
-		if (this.config.readOnlyMode()) {
-			if (this.cycleCounter >= 10) {
-				this.cycleCounter = 0;
-				// TODO nothing to do?
+		if (isManaged()) {
+			// allow minimum writes if values does not change (zero)
+			Instant now = Instant.now();
+			if (this.lastSetPower != null
+					&& Duration.between(this.lastApplyPower, now)
+							.getSeconds() < WATCHDOG_SECONDS) {
+				// no need to apply to new set-point
+				// TODO remove syso
+				if (!this.managed) {
+					System.out.println("skipped, delayed");
+					return;
+				} else {
+					if (activePowerWanted == this.lastSetPower) {
+						System.out.println("skipped, equals");
+						return;
+					}
+				}
 			}
-			return;
-		} else {
 
-			if (this.cycleCounter >= 10 ) { //|| activePowerWanted != lastPower) {
+			this.cycleCounter++;
+			if ((this.cycleCounter >= 10)
+					|| (activePowerWanted != lastSetPower)) {
 				this.cycleCounter = 0;
 
-				int maxDischargeContinuesPower = getMaxDischargeContinuesPower()
-						.orElse(0);
-				int maxChargeContinuesPower = getMaxChargeContinuesPower()
-						.orElse(0) * -1;
+				try {
+					// DebugSetActivePower
+					IntegerReadChannel setActivePowerEqualsChannel = this
+							.channel(
+									ManagedSymmetricEss.ChannelId.DEBUG_SET_ACTIVE_POWER);
+					int powerValue = setActivePowerEqualsChannel.value().get();
 
-				// We assume to be in RC-Mode
-				_setAllowedChargePower(maxChargeContinuesPower);
-				_setAllowedDischargePower(maxDischargeContinuesPower);
+					// TODO testing - realization depends on controller order
+					// (by scheduler)
+					// System.out.println("old value: " + powerValue);
 
-				// if (activePowerWanted < 0) { // Negative Values are for
-				// charging
-				// this._setMaxChargePower((activePowerWanted * -1));// Values
-				// for
-				// register must be positive
-				// } else {
-				// this._setMaxDischargePower(activePowerWanted);
-				// }
+				} catch (NullPointerException e) {
+					e.printStackTrace();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 
 				// Kostal is fine by writing one register with signed value
-				this._setChargePower(activePowerWanted);
-				lastPower = activePowerWanted;
+				IntegerWriteChannel setActivePowerChannel = this
+						.channel(KostalManagedEss.ChannelId.SET_ACTIVE_POWER);
+				if (!isSmartModeOptimized(activePowerWanted)) {
+					setActivePowerChannel.setNextWriteValue(activePowerWanted);
 
+					lastSetPower = activePowerWanted;
+					this.lastApplyPower = Instant.now();
+					managed = true;
+				} else {
+					managed = false;
+					this.lastApplyPower.plusSeconds(60);
+				}
+
+				// TODO remove...
+				System.out
+						.println("--> activePowerWanted: " + activePowerWanted);
 			}
-			return;
+		} else {
+			lastSetPower = null;
+			managed = false;
 		}
-
-	}
-
-	private void setLimits() {
-		try {
-			//_setMaxApparentPower(HW_MAX_APPARENT_POWER);
-			_setMaxDischargePower(HW_ALLOWED_DISCHARGE_POWER);
-			_setMaxChargePower(HW_ALLOWED_CHARGE_POWER);
-		} catch (OpenemsNamedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
 	}
 
 	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
@@ -234,128 +280,36 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 	private void addStaticModbusTasks(ModbusProtocol protocol)
 			throws OpenemsException {
 
-		/*
-		 * protocol.addTask(// new FC3ReadRegistersTask(0x9C93, Priority.HIGH,
-		 * //
-		 * 
-		 * m(SolarEdgeHybridEss.ChannelId.POWER_AC, // new
-		 * SignedWordElement(0x9C93)),
-		 * m(SolarEdgeHybridEss.ChannelId.POWER_AC_SCALE, // new
-		 * SignedWordElement(0x9C94))));
-		 * 
-		 * protocol.addTask(// new FC3ReadRegistersTask(0x9CA4, Priority.LOW, //
-		 * 
-		 * m(SolarEdgeHybridEss.ChannelId.POWER_DC, // new
-		 * SignedWordElement(0x9CA4)),
-		 * m(SolarEdgeHybridEss.ChannelId.POWER_DC_SCALE, // new
-		 * SignedWordElement(0x9CA5))));
-		 * 
-		 * protocol.addTask(// new FC3ReadRegistersTask(0xE142, Priority.LOW, //
-		 * 
-		 * m(HybridEss.ChannelId.DC_DISCHARGE_ENERGY, // new
-		 * FloatDoublewordElement(0xE142).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_CHARGE_CONTINUES_POWER, // new
-		 * FloatDoublewordElement(0xE144).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_DISCHARGE_CONTINUES_POWER, // new
-		 * FloatDoublewordElement(0xE146).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_CHARGE_PEAK_POWER, // new
-		 * FloatDoublewordElement(0xE148).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_DISCHARGE_PEAK_POWER, // new
-		 * FloatDoublewordElement(0xE14A).wordOrder(WordOrder.LSWMSW)),
-		 * 
-		 * new DummyRegisterElement(0xE14C, 0xE16B), // Reserved
-		 * m(SolarEdgeHybridEss.ChannelId.BATT_AVG_TEMPERATURE, // new
-		 * FloatDoublewordElement(0xE16C).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.BATT_MAX_TEMPERATURE, // new
-		 * FloatDoublewordElement(0xE16E).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.BATT_ACTUAL_VOLTAGE, // new
-		 * FloatDoublewordElement(0xE170).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.BATT_ACTUAL_CURRENT, // new
-		 * FloatDoublewordElement(0xE172).wordOrder(WordOrder.LSWMSW)),
-		 * m(HybridEss.ChannelId.DC_DISCHARGE_POWER, // new
-		 * FloatDoublewordElement(0xE174).wordOrder(WordOrder.LSWMSW),
-		 * ElementToChannelConverter.INVERT), // // new
-		 * DummyRegisterElement(0xE176, 0xE17D),
-		 * m(SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY, // new
-		 * UnsignedQuadruplewordElement(0xE176).wordOrder(WordOrder.LSWMSW)),
-		 * m(SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY, // new
-		 * UnsignedQuadruplewordElement(0xE17A).wordOrder(WordOrder.LSWMSW)),
-		 * m(SymmetricEss.ChannelId.CAPACITY, // new
-		 * FloatDoublewordElement(0xE17E).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.AVAIL_ENERGY, // new
-		 * FloatDoublewordElement(0xE180).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.SOH, // new
-		 * FloatDoublewordElement(0xE182).wordOrder(WordOrder.LSWMSW)),
-		 * m(SymmetricEss.ChannelId.SOC, // new
-		 * FloatDoublewordElement(0xE184).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.BATTERY_STATUS, // new
-		 * UnsignedDoublewordElement(0xE186).wordOrder(WordOrder.LSWMSW))
-		 * 
-		 * ));
-		 * 
-		 * protocol.addTask(// new FC3ReadRegistersTask(0xE004, Priority.LOW, //
-		 * m(SolarEdgeHybridEss.ChannelId.CONTROL_MODE, new
-		 * UnsignedWordElement(0xE004)),
-		 * m(SolarEdgeHybridEss.ChannelId.AC_CHARGE_POLICY, new
-		 * UnsignedWordElement(0xE005)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_CHARGE_LIMIT, new
-		 * FloatDoublewordElement(0xE006).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.STORAGE_BACKUP_LIMIT, new
-		 * FloatDoublewordElement(0xE008).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.CHARGE_DISCHARGE_DEFAULT_MODE, new
-		 * UnsignedWordElement(0xE00A)),
-		 * m(SolarEdgeHybridEss.ChannelId.REMOTE_CONTROL_TIMEOUT, new
-		 * UnsignedDoublewordElement(0xE00B).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.REMOTE_CONTROL_COMMAND_MODE, new
-		 * UnsignedWordElement(0xE00D)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_CHARGE_POWER, new
-		 * FloatDoublewordElement(0xE00E).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.MAX_DISCHARGE_POWER, new
-		 * FloatDoublewordElement(0xE010).wordOrder(WordOrder.LSWMSW))));
-		 * 
-		 * protocol.addTask(// new FC16WriteRegistersTask(0xE004,
-		 * m(SolarEdgeHybridEss.ChannelId.SET_CONTROL_MODE, new
-		 * SignedWordElement(0xE004)),
-		 * m(SolarEdgeHybridEss.ChannelId.SET_AC_CHARGE_POLICY, new
-		 * SignedWordElement(0xE005)), // Max charge Power
-		 * m(SolarEdgeHybridEss.ChannelId.SET_MAX_CHARGE_LIMIT, new
-		 * FloatDoublewordElement(0xE006).wordOrder(WordOrder.LSWMSW)), // kWh
-		 * or percent m(SolarEdgeHybridEss.ChannelId.SET_STORAGE_BACKUP_LIMIT,
-		 * new FloatDoublewordElement(0xE008).wordOrder(WordOrder.LSWMSW)), //
-		 * Percent of capacity
-		 * m(SolarEdgeHybridEss.ChannelId.SET_CHARGE_DISCHARGE_DEFAULT_MODE, new
-		 * UnsignedWordElement(0xE00A)), // Usually set to 1 (Charge PV excess
-		 * only) m(SolarEdgeHybridEss.ChannelId.SET_REMOTE_CONTROL_TIMEOUT, new
-		 * UnsignedDoublewordElement(0xE00B).wordOrder(WordOrder.LSWMSW)),
-		 * m(SolarEdgeHybridEss.ChannelId.SET_REMOTE_CONTROL_COMMAND_MODE, new
-		 * UnsignedWordElement(0xE00D)),
-		 * m(SolarEdgeHybridEss.ChannelId.SET_MAX_CHARGE_POWER, new
-		 * FloatDoublewordElement(0xE00E).wordOrder(WordOrder.LSWMSW)), // Max.
-		 * charge power - negative value range
-		 * m(SolarEdgeHybridEss.ChannelId.SET_MAX_DISCHARGE_POWER, new
-		 * FloatDoublewordElement(0xE010).wordOrder(WordOrder.LSWMSW)) // Max.
-		 * discharge power - positive value range ));
-		 */
-
 		// TODO check if required - overwriting sunspec model?
 		protocol.addTask(//
 				new FC3ReadRegistersTask(531, Priority.LOW, //
 						m(SymmetricEss.ChannelId.MAX_APPARENT_POWER,
 								new UnsignedWordElement(531)))); //
 
+		// protocol.addTask(//
+		// new FC3ReadRegistersTask(582, Priority.HIGH, //
+		// m(SymmetricEss.ChannelId.ACTIVE_POWER,
+		// new SignedWordElement(582))));
+
+		// TODO double check - enable widget charge/discharge power?
 		protocol.addTask(//
 				new FC3ReadRegistersTask(582, Priority.HIGH, //
-						m(SymmetricEss.ChannelId.ACTIVE_POWER,
+						m(HybridEss.ChannelId.DC_DISCHARGE_POWER,
 								new SignedWordElement(582))));
 
-		// protocol.addTask(//
-		// new FC3ReadRegistersTask(1038, Priority.HIGH, //
-		// m(ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER,
-		// new FloatDoublewordElement(1038)
-		// .wordOrder(LSWMSW)), //
-		// m(ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER,
-		// new FloatDoublewordElement(1040)
-		// .wordOrder(LSWMSW)))); //
+		protocol.addTask(//
+				new FC3ReadRegistersTask(1038, Priority.HIGH, //
+						m(KostalManagedEss.ChannelId.MAX_CHARGE_POWER,
+								new FloatDoublewordElement(1038)
+										.wordOrder(LSWMSW)), //
+						m(KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER,
+								new FloatDoublewordElement(1040)
+										.wordOrder(LSWMSW)))); //
+
+		protocol.addTask(//
+				new FC3ReadRegistersTask(1034, Priority.LOW, m(
+						KostalManagedEss.ChannelId.CHARGE_POWER,
+						new FloatDoublewordElement(1034).wordOrder(LSWMSW)))); //
 
 		protocol.addTask(//
 				new FC3ReadRegistersTask(1046, Priority.LOW,
@@ -368,9 +322,14 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 
 		protocol.addTask(//
 				new FC16WriteRegistersTask(1034, //
-						m(KostalManagedEss.ChannelId.CHARGE_POWER,
+						m(KostalManagedEss.ChannelId.SET_ACTIVE_POWER,
 								new FloatDoublewordElement(1034)
 										.wordOrder(LSWMSW)) //
+				// protocol.addTask(//
+				// new FC16WriteRegistersTask(1034, //
+				// m(ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS,
+				// new FloatDoublewordElement(1034)
+				// .wordOrder(LSWMSW)) //
 				));
 	}
 
@@ -380,7 +339,7 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 	// * aktuelle Verbrauch + Batterie-Ladung/Entladung *-1
 	// *
 	// */
-	// public void _setMyActivePower() {
+	// public void _setInverterActivePower() {
 	//
 	// int acPower = this.getAcPower().orElse(0);
 	// // int acPowerScale = this.getAcPowerScale().orElse(0);
@@ -436,8 +395,16 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 				ElementToChannelConverter.DIRECT_1_TO_1, //
 				DefaultSunSpecModel.S103.V_AR);
 
-		this.setLimits();
+		// TODO substracted in UI widget by DC_DISCHARGE_POWER - otherwise
+		// S802.W
+		this.mapFirstPointToChannel(//
+				SymmetricEss.ChannelId.ACTIVE_POWER, //
+				ElementToChannelConverter.DIRECT_1_TO_1, //
+				DefaultSunSpecModel.S103.DCW);
+		// TODO check, what's correct (DCW is DC side, W is AC side - Inverter)
+		// DefaultSunSpecModel.S103.W/S103.DCW);
 
+		// this.setLimits();
 	}
 
 	@Override
@@ -449,44 +416,20 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 					+ this.channel(
 							ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER)
 							.value().asStringWithoutUnit()
-					// + " / Peak: "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.MAX_CHARGE_PEAK_POWER).value().asStringWithoutUnit()
 					+ ";" + "|Allowed DisCharge Power:"
 					+ this.channel(
 							ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER)
 							.value().asStringWithoutUnit()
-					// + " / Peak: "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.MAX_DISCHARGE_PEAK_POWER).value().asStringWithoutUnit()
-					// + ";" + "|ControlMode "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.CONTROL_MODE).value().asStringWithoutUnit()
-					// //
-					// + "|ChargePolicy "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.AC_CHARGE_POLICY).value().asStringWithoutUnit()
-					// //
-					// + "|DefaultMode "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.CHARGE_DISCHARGE_DEFAULT_MODE).value()
-					// .asStringWithoutUnit() //
-					// + "|RemoteControlMode "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.REMOTE_CONTROL_COMMAND_MODE).value()
-					// .asStringWithoutUnit() //
-					+ "|ChargePower "
+					+ "|MaxChargePower "
 					+ this.channel(KostalManagedEss.ChannelId.MAX_CHARGE_POWER)
 							.value().asStringWithoutUnit() //
-					+ "|DischargePower "
+					+ "|MaxDischargePower "
 					+ this.channel(
 							KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER)
 							.value().asStringWithoutUnit() //
-					// + "|CommandTimeout "
-					// +
-					// this.channel(KostalManagedEss.ChannelId.REMOTE_CONTROL_TIMEOUT).value().asStringWithoutUnit()
-					// //
-
+					+ "|ChargePower "
+					+ this.channel(KostalManagedEss.ChannelId.CHARGE_POWER)
+							.value().asString() //
 					+ "|" + this.getGridModeChannel().value().asOptionString() //
 			// + "|Feed-In:" //
 			// + this.channel(SymmetricEss.ChannelId.ACTIVE_POWER).value()
@@ -514,9 +457,30 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 				// this._setMyActivePower();
 				break;
 			case EdgeEventConstants.TOPIC_CYCLE_BEFORE_CONTROLLERS :
-				// this._setMyActivePower();
 				this.setLimits();
 				break;
+		}
+	}
+
+	private void setLimits() {
+		int maxDischargePower = getMaxDischargePower().orElse(0);
+		int maxChargePower = getMaxChargePower().orElse(0) * -1;
+
+		this._setAllowedDischargePower(maxDischargePower);
+		this._setAllowedChargePower(maxChargePower);
+
+		try {
+			int soc = getSoc().get();
+			if (soc == 100) {
+				// maximum state of charge
+				this._setAllowedChargePower(0);
+			}
+			if (soc <= this.minsoc) {
+				// minimum state of charge
+				this._setAllowedDischargePower(0);
+			}
+		} catch (NullPointerException e) {
+			// e.printStackTrace();
 		}
 	}
 
@@ -544,10 +508,8 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 
 	@Override
 	public boolean isManaged() {
-		// return true;
-
-		// Just for Testing
-		return !this.config.readOnlyMode();
+		return (this.config.enabled() && !this.config.readOnlyMode()
+				&& this.controlMode == ControlMode.REMOTE);
 	}
 
 	@Override
@@ -555,6 +517,26 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 		// return this.surplusFeedInHandler.run(this.chargers, this.config,
 		// this.componentManager);
 		return null;
+	}
+
+	private boolean isSmartModeOptimized(int activePower) {
+		if (this.controlMode == ControlMode.SMART) {
+			return false;
+		}
+		try {
+			int currentActivePowerAbs = Math.abs(this.getActivePower().get());
+			int activePowerAbs = Math.abs(activePower);
+
+			if (Math.abs(
+					currentActivePowerAbs - activePowerAbs) > this.targetDiff
+					&& !this.managed) {
+				// internal control is not sufficient
+				return true;
+			}
+		} catch (NullPointerException e) {
+			// e.printStackTrace();
+		}
+		return false;
 	}
 
 }

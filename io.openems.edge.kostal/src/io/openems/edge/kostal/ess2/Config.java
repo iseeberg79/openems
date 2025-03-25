@@ -3,6 +3,8 @@ package io.openems.edge.kostal.ess2;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
+import io.openems.edge.kostal.enums.ControlMode;
+
 @ObjectClassDefinition(
 		//
 		name = "ESS Kostal Plenticore plus", //
@@ -19,7 +21,16 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 	@AttributeDefinition(name = "Read-Only mode", description = "In Read-Only mode no set-power-commands are sent to the inverter")
 	boolean readOnlyMode() default true;
+	
+	@AttributeDefinition(name = "Control mode", description = "Sets the Control mode")
+	ControlMode controlMode() default ControlMode.INTERNAL;
 
+	@AttributeDefinition(name = "Minimum Battery-Soc", description = "The minimum battery state of charge.")
+	int minsoc() default 5;
+
+	@AttributeDefinition(name = "Watchdog", description = "The watchdog configured at the inverter to return into internal operation mode.")
+	int watchdog() default 30;
+	
 	@AttributeDefinition(name = "Modbus-ID", description = "ID of Modbus bridge.")
 	String modbus_id() default "modbus0";
 

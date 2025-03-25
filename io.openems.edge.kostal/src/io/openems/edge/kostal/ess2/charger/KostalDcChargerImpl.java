@@ -38,6 +38,7 @@ import io.openems.edge.common.modbusslave.ModbusSlaveNatureTable;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.ess.dccharger.api.EssDcCharger;
+import io.openems.edge.kostal.common.AbstractSunSpecDcCharger;
 import io.openems.edge.kostal.ess2.KostalManagedEss;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -104,9 +105,9 @@ ModbusComponent, OpenemsComponent, EventHandler, TimedataProvider, ModbusSlave {
 
 	private static final Map<SunSpecModel, Priority> ACTIVE_MODELS = ImmutableMap.<SunSpecModel, Priority>builder()
 			.put(DefaultSunSpecModel.S_1, Priority.LOW) //
-			.put(DefaultSunSpecModel.S_103, Priority.LOW) //
+			//.put(DefaultSunSpecModel.S_103, Priority.LOW) //
 			.put(DefaultSunSpecModel.S_113, Priority.LOW) //
-			.put(DefaultSunSpecModel.S_120, Priority.LOW) //
+			//.put(DefaultSunSpecModel.S_120, Priority.LOW) //
 			//.put(DefaultSunSpecModel.S_123, Priority.LOW) //
 			//.put(DefaultSunSpecModel.S_203, Priority.LOW) //
 			//.put(DefaultSunSpecModel.S_802, Priority.LOW) //
@@ -207,6 +208,7 @@ ModbusComponent, OpenemsComponent, EventHandler, TimedataProvider, ModbusSlave {
 		}
 	}*/
 
+	@Override
 	@Deactivate
 	protected void deactivate() {
 		this.ess.removeCharger(this);

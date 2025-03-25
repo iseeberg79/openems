@@ -14,109 +14,13 @@ import io.openems.edge.kostal.ess2.charger.KostalDcCharger;
 
 public interface KostalManagedEss extends OpenemsComponent {
 
-	public static enum ChannelId implements io.openems.edge.common.channel.ChannelId {
+	public static enum ChannelId
+			implements
+				io.openems.edge.common.channel.ChannelId {
 
 		/**
-		 * Available Energy.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		AVAIL_ENERGY(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT_HOURS) //
-				.persistencePriority(PersistencePriority.LOW)), // defined in external file
-
-		/**
-		 * Actual Current to or from the battery.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: A
-		 * <li>
-		 * </ul>
-		 */
-		BATT_ACTUAL_CURRENT(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.AMPERE) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * actual battery voltage.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: V
-		 * <li>
-		 * </ul>
-		 */
-		BATT_ACTUAL_VOLTAGE(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.VOLT) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * average battery temperature.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		BATT_AVG_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.DEGREE_CELSIUS) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * Battery Lifetime Export Energy.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: Wh
-		 * <li>
-		 * </ul>
-		 */
-		BATT_LIFETIME_EXPORT_ENERGY(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT_HOURS) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * Battery Lifetime Import Energy.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: Wh
-		 * <li>
-		 * </ul>
-		 */
-		BATT_LIFETIME_IMPORT_ENERGY(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT_HOURS) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * maximum battery temperature.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		BATT_MAX_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.DEGREE_CELSIUS) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * Charge Power Wanted is the activePower wanted from controllers and internal.
-		 * Channel for applyPower()-Method
+		 * Charge Power Wanted is the activePower wanted from controllers and
+		 * internal. Channel for applyPower()-Method
 		 *
 		 * <p>
 		 * negative values for charging
@@ -127,7 +31,9 @@ public interface KostalManagedEss extends OpenemsComponent {
 		 * <li>
 		 * </ul>
 		 */
-		CHARGE_POWER_WANTED(Doc.of(OpenemsType.INTEGER) // Charge/Discharge-Power wanted from controllers
+		CHARGE_POWER_WANTED(Doc.of(OpenemsType.INTEGER) // Charge/Discharge-Power
+														// wanted from
+														// controllers
 				.unit(Unit.WATT)), // defined in external file
 
 		/**
@@ -156,43 +62,9 @@ public interface KostalManagedEss extends OpenemsComponent {
 		 */
 		GRID_POWER_SCALE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.NONE) //
-				.persistencePriority(PersistencePriority.HIGH)), // defined in external file
-
-		/**
-		 * Charge continues power Varies with storage state of charge.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		MAX_CHARGE_CONTINUES_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.persistencePriority(PersistencePriority.LOW)), // defined in external file
-
-		/*
-		 * Storage AC Charge Limit is used to set the AC charge limit according to the
-		 * policy set in the previous register. Either fixed in kWh or percentage is set
-		 * (e.g. 100KWh or 70%). Relevant only for Storage AC Charge Policy = 2 or 3
-		 */
-		MAX_CHARGE_LIMIT(Doc.of(OpenemsType.INTEGER) // Percent or kWh
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH).accessMode(AccessMode.READ_ONLY)),
-		/**
-		 * Charge continues power Varies with storage state of charge.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		MAX_CHARGE_PEAK_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.persistencePriority(PersistencePriority.LOW)), // defined in external file
+				.persistencePriority(PersistencePriority.HIGH)), // defined in
+																	// external
+																	// file
 
 		/**
 		 * Battery charge power (DC) setpoint
@@ -207,8 +79,8 @@ public interface KostalManagedEss extends OpenemsComponent {
 		 */
 		CHARGE_POWER(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.WATT) //
-				.accessMode(AccessMode.WRITE_ONLY)),
-		
+				.accessMode(AccessMode.READ_ONLY)),
+
 		/**
 		 * Charge Power READ Channel always positive.
 		 * 
@@ -223,34 +95,6 @@ public interface KostalManagedEss extends OpenemsComponent {
 		MAX_CHARGE_POWER(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.WATT) //
 				.accessMode(AccessMode.READ_ONLY)),
-
-		/**
-		 * Discharge continues power Varies with storage state of charge.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		MAX_DISCHARGE_CONTINUES_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/**
-		 * Discharge continues power Varies with storage state of charge.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>
-		 * </ul>
-		 */
-		MAX_DISCHARGE_PEAK_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.persistencePriority(PersistencePriority.LOW)),
 
 		/**
 		 * Dicharge Power READ Channel always positive.
@@ -323,29 +167,10 @@ public interface KostalManagedEss extends OpenemsComponent {
 				.persistencePriority(PersistencePriority.HIGH)), //
 
 		/**
-		 * Rated Energy.
-		 *
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: Wh
-		 * <li>
-		 * </ul>
-		 */
-		RATED_ENERGY(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT_HOURS) //
-				.persistencePriority(PersistencePriority.LOW)), //
-
-
-		SET_MAX_CHARGE_LIMIT(Doc.of(OpenemsType.INTEGER) // Percent or kWh
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH).accessMode(AccessMode.WRITE_ONLY)),
-
-		/**
 		 * Charge Power WRITE Channel always positive
 		 * 
 		 * <p>
-		 * Tells the ESS the charge power. 
+		 * Tells the ESS the charge power.
 		 * <ul>
 		 * <li>Interface: Ess
 		 * <li>Type: Integer
@@ -360,7 +185,7 @@ public interface KostalManagedEss extends OpenemsComponent {
 		 * Discharge Power WRITE Channel always positive
 		 * 
 		 * <p>
-		 * Tells the ESS the charge power. 
+		 * Tells the ESS the charge power.
 		 * <ul>
 		 * <li>Interface: Ess
 		 * <li>Type: Integer
@@ -371,38 +196,10 @@ public interface KostalManagedEss extends OpenemsComponent {
 				.unit(Unit.WATT) //
 				.accessMode(AccessMode.WRITE_ONLY)),
 
-		/**
-		 * Storage Backup Limit. Storage Backup Reserved Setting sets the percentage of
-		 * reserved battery SOE to be used for backup purposes. Relevant only for
-		 * inverters with backup functionality.
-		 */
-		SET_STORAGE_BACKUP_LIMIT(Doc.of(OpenemsType.INTEGER) // Percent. Only relevant for backup systems
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH)),
-
-		/**
-		 * State Of Health.
-		 *
-		 * <p>
-		 * <ul>
-		 * <li>Interface: Ess
-		 * <li>Type: Integer
-		 * <li>Unit: Percent
-		 * <li>
-		 * </ul>
-		 */
-		SOH(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.LOW)),
-
-		/*
-		 * Storage Backup Reserved Setting sets the percentage of reserved battery SOE
-		 * to be used for backup purposes. Relevant only for inverters with backup
-		 * functionality.
-		 */
-		STORAGE_BACKUP_LIMIT(Doc.of(OpenemsType.INTEGER) // Percent. Only relevant for backup systems
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH));
+		// IntegerWriteChannels
+		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER) //
+				.accessMode(AccessMode.WRITE_ONLY) //
+				.unit(Unit.WATT)); //
 
 		private final Doc doc;
 
@@ -421,19 +218,22 @@ public interface KostalManagedEss extends OpenemsComponent {
 	 * Internal method to set the 'nextValue' on
 	 * {@link ChannelId#CHARGE_POWER_WANTED} Channel.
 	 *
-	 * @param value the next value
+	 * @param value
+	 *            the next value
 	 */
 	public default void _setChargePowerWanted(Integer value) {
 		this.getChargePowerWantedChannel().setNextValue(value);
 	}
-	
+
 	/**
 	 * Internal method to set the 'nextValue' on
 	 * {@link ChannelId#CHARGE_POWER_WANTED} Channel.
 	 *
-	 * @param value the next value
+	 * @param i
+	 *            the next value
 	 */
 	public default void _setChargePower(Integer value) {
+		System.out.println("setChargePower called... setting value: " + value);
 		this.getSetChargePowerChannel().setNextValue(value);
 	}
 
@@ -441,10 +241,13 @@ public interface KostalManagedEss extends OpenemsComponent {
 	 * Internal method to set the 'nextValue' on
 	 * {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE} Channel.
 	 *
-	 * @param value the next value
-	 * @throws OpenemsNamedException throws named exception
+	 * @param value
+	 *            the next value
+	 * @throws OpenemsNamedException
+	 *             throws named exception
 	 */
-	public default void _setMaxChargePower(Integer value) throws OpenemsNamedException {
+	public default void _setMaxChargePower(Integer value)
+			throws OpenemsNamedException {
 		this.getSetMaxChargePowerChannel().setNextWriteValue(value);
 	}
 
@@ -452,16 +255,21 @@ public interface KostalManagedEss extends OpenemsComponent {
 	 * Internal method to set the 'nextValue' on
 	 * {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE} Channel.
 	 *
-	 * @param value the next value for max. Discharge Power
-	 * @throws OpenemsNamedException throws named exception
+	 * @param value
+	 *            the next value for max. Discharge Power
+	 * @throws OpenemsNamedException
+	 *             throws named exception
 	 */
-	public default void _setMaxDischargePower(Integer value) throws OpenemsNamedException {
+	public default void _setMaxDischargePower(Integer value)
+			throws OpenemsNamedException {
 		this.getSetMaxDischargePowerChannel().setNextWriteValue(value);
 	}
 
 	/**
 	 * Not sure if necessary.
-	 * @param charger Adds charger component
+	 * 
+	 * @param charger
+	 *            Adds charger component
 	 */
 	public void addCharger(KostalDcCharger charger);
 
@@ -522,7 +330,7 @@ public interface KostalManagedEss extends OpenemsComponent {
 		return this.channel(ChannelId.CHARGE_POWER_WANTED);
 	}
 
-	// 	######################			
+	// ######################
 
 	/**
 	 * DC Power Channel {@link ChannelId#POWER_DC_SCALE}.
@@ -563,8 +371,8 @@ public interface KostalManagedEss extends OpenemsComponent {
 	}
 
 	/**
-	 * Gets the DC Discharge Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#GRID_POWER}.
+	 * Gets the DC Discharge Power in [W]. Negative values for Charge; positive
+	 * for Discharge. See {@link ChannelId#GRID_POWER}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -582,8 +390,8 @@ public interface KostalManagedEss extends OpenemsComponent {
 	}
 
 	/**
-	 * Gets the DC Discharge Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#GRID_POWER_SCALE}.
+	 * Gets the DC Discharge Power in [W]. Negative values for Charge; positive
+	 * for Discharge. See {@link ChannelId#GRID_POWER_SCALE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -598,45 +406,6 @@ public interface KostalManagedEss extends OpenemsComponent {
 	 */
 	public default IntegerReadChannel getGridPowerScaleChannel() {
 		return this.channel(ChannelId.GRID_POWER_SCALE);
-	}
-
-	/**
-	 * Gets the Active Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getMaxChargeContinuesPower() {
-		return this.getMaxChargeContinuesPowerChannel().value();
-	}
-
-	// ###########################
-	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getMaxChargeContinuesPowerChannel() {
-		return this.channel(ChannelId.MAX_CHARGE_CONTINUES_POWER);
-	}
-
-	/**
-	 * Gets the Active Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getMaxChargePeakPower() {
-		return this.getMaxChargePeakPowerChannel().value();
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getMaxChargePeakPowerChannel() {
-		return this.channel(ChannelId.MAX_CHARGE_PEAK_POWER);
 	}
 
 	/**
@@ -660,36 +429,6 @@ public interface KostalManagedEss extends OpenemsComponent {
 	}
 
 	// ###########################
-
-	/**
-	 * Gets the Active Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getMaxDischargeContinuesPower() {
-		return this.getMaxDishargeContinuesPowerChannel().value();
-	}
-
-	/**
-	 * Gets the Active Power in [W]. Negative values for Charge; positive for
-	 * Discharge. See {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getMaxDischargePeakPower() {
-		return this.getMaxDischargePeakPowerChannel().value();
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getMaxDischargePeakPowerChannel() {
-		return this.channel(ChannelId.MAX_DISCHARGE_PEAK_POWER);
-	}
-
 	/**
 	 * Is the Energy Storage System On-Grid? See
 	 * {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE}.
@@ -700,7 +439,7 @@ public interface KostalManagedEss extends OpenemsComponent {
 		return this.getMaxDischargePowerChannel().value();
 	}
 
-	// 	#############		
+	// #############
 	/**
 	 * Gets the Channel for {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE}.
 	 *
@@ -712,20 +451,11 @@ public interface KostalManagedEss extends OpenemsComponent {
 
 	// ###########################
 	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getMaxDishargeContinuesPowerChannel() {
-		return this.channel(ChannelId.MAX_DISCHARGE_CONTINUES_POWER);
-	}
-
-	/**
 	 * Sets the Modbus-ID from Config.
+	 * 
 	 * @return Modbus-ID as String
 	 */
 	public String getModbusBridgeId();
-
 
 	/**
 	 * Gets the Channel for {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE}.
@@ -744,7 +474,7 @@ public interface KostalManagedEss extends OpenemsComponent {
 	public default IntegerWriteChannel getSetMaxDischargePowerChannel() {
 		return this.channel(ChannelId.SET_MAX_DISCHARGE_POWER);
 	}
-	
+
 	/**
 	 * Gets the Channel for {@link ChannelId#REMOTE_CONTROL_COMMAND_MODE}.
 	 *
@@ -753,7 +483,7 @@ public interface KostalManagedEss extends OpenemsComponent {
 	public default IntegerWriteChannel getSetChargePowerChannel() {
 		return this.channel(ChannelId.CHARGE_POWER);
 	}
-	
+
 	/**
 	 * Gets the Unit-ID for ESS.
 	 * 
@@ -763,7 +493,9 @@ public interface KostalManagedEss extends OpenemsComponent {
 
 	/**
 	 * Removes Charger.
-	 * @param charger Removes given charger instance
+	 * 
+	 * @param charger
+	 *            Removes given charger instance
 	 */
 	public void removeCharger(KostalDcCharger charger);
 

@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.ess2.charger;
+package io.openems.edge.kostal.common;
 
 import java.util.Map;
 import java.util.Optional;
