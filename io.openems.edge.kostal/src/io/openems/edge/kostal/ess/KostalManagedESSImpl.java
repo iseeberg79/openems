@@ -44,7 +44,6 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.kostal.enums.ControlMode;
-import io.openems.edge.kostal.ess2.KostalManagedEss;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -203,7 +202,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 
 				// Kostal is fine by writing one register with signed value
 				IntegerWriteChannel setActivePowerChannel = this
-						.channel(KostalManagedEss.ChannelId.SET_ACTIVE_POWER);
+						.channel(KostalManagedESS.ChannelId.SET_ACTIVE_POWER);
 				setActivePowerChannel.setNextWriteValue(activePower);
 
 				lastSetPower = activePower;
@@ -292,15 +291,15 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 				// .wordOrder(LSWMSW))), //
 
 				new FC3ReadRegistersTask(1034, Priority.LOW,
-						m(KostalManagedEss.ChannelId.CHARGE_POWER,
+						m(KostalManagedESS.ChannelId.CHARGE_POWER,
 								new FloatDoublewordElement(1034)
 										.wordOrder(LSWMSW))), //
 
 				new FC3ReadRegistersTask(1038, Priority.HIGH, //
-						m(KostalManagedEss.ChannelId.MAX_CHARGE_POWER,
+						m(KostalManagedESS.ChannelId.MAX_CHARGE_POWER,
 								new FloatDoublewordElement(1038)
 										.wordOrder(LSWMSW)), //
-						m(KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER,
+						m(KostalManagedESS.ChannelId.MAX_DISCHARGE_POWER,
 								new FloatDoublewordElement(1040)
 										.wordOrder(LSWMSW))), //
 
@@ -340,13 +339,13 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER)
 						.value().asStringWithoutUnit()
 				+ "|MaxChargePower "
-				+ this.channel(KostalManagedEss.ChannelId.MAX_CHARGE_POWER)
+				+ this.channel(KostalManagedESS.ChannelId.MAX_CHARGE_POWER)
 						.value().asStringWithoutUnit() //
 				+ "|MaxDischargePower "
-				+ this.channel(KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER)
+				+ this.channel(KostalManagedESS.ChannelId.MAX_DISCHARGE_POWER)
 						.value().asStringWithoutUnit() //
 				+ "|ChargePower "
-				+ this.channel(KostalManagedEss.ChannelId.CHARGE_POWER).value()
+				+ this.channel(KostalManagedESS.ChannelId.CHARGE_POWER).value()
 						.asString() //
 				+ "|" + this.getGridModeChannel().value().asOptionString() //
 		;
