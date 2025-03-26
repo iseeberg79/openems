@@ -42,6 +42,8 @@ import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
+import io.openems.edge.ess.power.api.Constraint;
+import io.openems.edge.ess.power.api.Phase;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.kostal.enums.ControlMode;
 import io.openems.edge.meter.api.ElectricityMeter;
@@ -282,13 +284,13 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						m(SymmetricEss.ChannelId.ACTIVE_POWER,
 								new SignedWordElement(582))),
 
-				// new FC3ReadRegistersTask(1038, Priority.HIGH, //
-				// m(ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER,
-				// new FloatDoublewordElement(1038)
-				// .wordOrder(LSWMSW)), //
-				// m(ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER,
-				// new FloatDoublewordElement(1040)
-				// .wordOrder(LSWMSW))), //
+				new FC3ReadRegistersTask(1038, Priority.HIGH, //
+						m(ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER,
+								new FloatDoublewordElement(1038)
+										.wordOrder(LSWMSW)), //
+						m(ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER,
+								new FloatDoublewordElement(1040)
+										.wordOrder(LSWMSW))), //
 
 				new FC3ReadRegistersTask(1034, Priority.LOW,
 						m(KostalManagedESS.ChannelId.CHARGE_POWER,
@@ -349,7 +351,6 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						.asString() //
 				+ "|" + this.getGridModeChannel().value().asOptionString() //
 		;
-
 	}
 
 	@Override
