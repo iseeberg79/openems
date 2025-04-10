@@ -1,6 +1,8 @@
 package io.openems.edge.kostal.pvinverter;
 
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -23,6 +25,7 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.MeterType;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
+import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
@@ -71,7 +74,7 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 	
 	private final CalculateEnergyFromPower calculateProductionEnergy = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
-
+	
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
 
@@ -117,6 +120,8 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 	protected void deactivate() {
 		super.deactivate();
 	}
+	
+	private final ElementToChannelConverter ignoreZeroAndScaleFactor3 = IgnoreZeroConverter.from(this, SCALE_FACTOR_3);
 
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
@@ -135,7 +140,7 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 						// new DummyRegisterElement(156, 157), //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L1,
 								new FloatDoublewordElement(158)
-										.wordOrder(LSWMSW)), //
+										.wordOrder(LSWMSW),this.ignoreZeroAndScaleFactor3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L2,
 								new FloatDoublewordElement(160)
 										.wordOrder(LSWMSW)), // //
@@ -145,18 +150,18 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 						// new DummyRegisterElement(162, 163), //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L2,
 								new FloatDoublewordElement(164)
-										.wordOrder(LSWMSW)), //
+										.wordOrder(LSWMSW),this.ignoreZeroAndScaleFactor3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L3,
 								new FloatDoublewordElement(166)
 										.wordOrder(LSWMSW)),
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
 								new FloatDoublewordElement(168)
-										.wordOrder(LSWMSW))), //
+										.wordOrder(LSWMSW),this.ignoreZeroAndScaleFactor3)), //
 
 				new FC3ReadRegistersTask(170, Priority.HIGH, //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L3,
 								new FloatDoublewordElement(170)
-										.wordOrder(LSWMSW))), //
+										.wordOrder(LSWMSW),this.ignoreZeroAndScaleFactor3)), //
 
 //				new FC3ReadRegistersTask(320, Priority.HIGH, //
 //						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY,
