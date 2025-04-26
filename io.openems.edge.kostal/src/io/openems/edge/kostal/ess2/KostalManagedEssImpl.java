@@ -427,39 +427,28 @@ public class KostalManagedEssImpl extends AbstractSunSpecEss
 
 	@Override
 	public String debugLog() {
-		if (this.config.debugMode()) {
-			return "SoC:" + this.getSoc().asString() //
-					+ "|L:" + this.getActivePower().asString() //
-					+ "|Allowed Charge Power:"
-					+ this.channel(
-							ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER)
-							.value().asStringWithoutUnit()
-					+ ";" + "|Allowed DisCharge Power:"
-					+ this.channel(
-							ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER)
-							.value().asStringWithoutUnit()
-					+ "|MaxChargePower "
-					+ this.channel(KostalManagedEss.ChannelId.MAX_CHARGE_POWER)
-							.value().asStringWithoutUnit() //
-					+ "|MaxDischargePower "
-					+ this.channel(
-							KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER)
-							.value().asStringWithoutUnit() //
-					+ "|ChargePower "
-					+ this.channel(KostalManagedEss.ChannelId.CHARGE_POWER)
-							.value().asString() //
-					+ "|SurplusPower:" + getSurplusPower() //
-					+ "|" + this.getGridModeChannel().value().asOptionString() //
-			;
-		} else {
-			return "SoC:" + this.getSoc().asString() + "|L:"
-					+ this.getActivePower().asString() //
-					+ "|ChargePower "
-					+ this.channel(KostalManagedEss.ChannelId.CHARGE_POWER)
-							.value().asString() //
-					+ "|SurplusPower:" + getSurplusPower() //
-			;
-		}
+		return "SoC:" + this.getSoc().asString() //
+				+ "|L:" + this.getActivePower().asString() //
+				+ "|Allowed Charge Power:"
+				+ this.channel(
+						ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER)
+						.value().asStringWithoutUnit()
+				+ ";" + "|Allowed DisCharge Power:"
+				+ this.channel(
+						ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER)
+						.value().asStringWithoutUnit()
+				+ "|MaxChargePower "
+				+ this.channel(KostalManagedEss.ChannelId.MAX_CHARGE_POWER)
+						.value().asStringWithoutUnit() //
+				+ "|MaxDischargePower "
+				+ this.channel(KostalManagedEss.ChannelId.MAX_DISCHARGE_POWER)
+						.value().asStringWithoutUnit() //
+				+ "|ChargePower "
+				+ this.channel(KostalManagedEss.ChannelId.CHARGE_POWER).value()
+						.asString() //
+				+ "|SurplusPower:" + getSurplusPower() //
+				+ "|" + this.getGridModeChannel().value().asOptionString() //
+		;
 
 	}
 
