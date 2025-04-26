@@ -42,6 +42,7 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
@@ -105,7 +106,10 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	private int watchdog = 30;
 	private int tolerance = 20;
 
-	// is DC power for consistency
+	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(
+			this, SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateAcDischargeEnergy = new CalculateEnergyFromPower(
+			this, SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 	private final CalculateEnergyFromPower calculateDcChargeEnergy = new CalculateEnergyFromPower(
 			this, HybridEss.ChannelId.DC_CHARGE_ENERGY);
 	private final CalculateEnergyFromPower calculateDcDischargeEnergy = new CalculateEnergyFromPower(
@@ -283,7 +287,9 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 								new FloatDoublewordElement(170)
 										.wordOrder(LSWMSW)),
 						m(SymmetricEss.ChannelId.ACTIVE_POWER,
-								new FloatDoublewordElement(172) // ist AC, besser DC aus 1066?
+								new FloatDoublewordElement(172) // ist AC,
+																// besser DC aus
+																// 1066?
 										.wordOrder(LSWMSW)),
 						m(SymmetricEss.ChannelId.REACTIVE_POWER,
 								new FloatDoublewordElement(174)
@@ -462,10 +468,33 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	}
 
 	private void calculateEnergy() {
-		// Calculate AC Energy
-		var activePower = this.getDcDischargePowerChannel().getNextValue()
+
+		// get AC/DC Power
+		var activeDcPower = this.getDcDischargePowerChannel().getNextValue()
 				.get();
-		if (activePower == null) {
+
+		var activeAcPower = TypeUtils.sum(calculatePvProduction(),
+				activeDcPower);
+		// TODO decide... what is correct?
+		activeAcPower = this.getActivePowerChannel().getNextValue().get();
+
+		// Calculate AC Energy
+		if (activeAcPower == null) {
+			// Not available
+			this.calculateAcChargeEnergy.update(null);
+			this.calculateAcDischargeEnergy.update(null);
+		} else if (activeAcPower > 0) {
+			// Discharge
+			this.calculateAcChargeEnergy.update(0);
+			this.calculateAcDischargeEnergy.update(activeAcPower);
+		} else {
+			// Charge
+			this.calculateAcChargeEnergy.update(activeAcPower * -1);
+			this.calculateAcDischargeEnergy.update(0);
+		}
+
+		// Calculate DC Energy
+		if (activeDcPower == null) {
 			// Not available
 			this.calculateDcChargeEnergy.update(null);
 			this.calculateDcDischargeEnergy.update(null);
@@ -473,13 +502,13 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 			if (config.debugMode())
 				System.out.println(
 						"valid active power for calculation of energy");
-			if (activePower > 0) {
+			if (activeDcPower > 0) {
 				// Discharge
 				this.calculateDcChargeEnergy.update(0);
-				this.calculateDcDischargeEnergy.update(activePower);
+				this.calculateDcDischargeEnergy.update(activeDcPower);
 			} else {
 				// Charge
-				this.calculateDcChargeEnergy.update(activePower * -1);
+				this.calculateDcChargeEnergy.update(activeDcPower * -1);
 				this.calculateDcDischargeEnergy.update(0);
 			}
 		}
@@ -510,7 +539,8 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 				surplusPower = chargePower + calculatePvProduction();
 			}
 		}
-		//TODO subtract home consumption (summarize modbus registers 106+108+116 or 106+116 (float))
+		// TODO subtract home consumption (summarize modbus registers
+		// 106+108+116 or 106+116 (float))
 		if (surplusPower > 0) {
 			return surplusPower;
 		}
