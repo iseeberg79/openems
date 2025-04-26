@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.gridmeter.modbus;
+package io.openems.edge.kostal.gridmeter;
 
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;

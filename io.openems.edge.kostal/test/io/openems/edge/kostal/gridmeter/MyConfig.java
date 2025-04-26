@@ -1,9 +1,9 @@
-package io.openems.edge.kostal.gridmeter.sunspec;
+package io.openems.edge.kostal.gridmeter;
 
 import io.openems.common.test.AbstractComponentConfig;
 import io.openems.common.types.MeterType;
 import io.openems.common.utils.ConfigUtils;
-import io.openems.edge.kostal.gridmeter.sunspec.Config;
+import io.openems.edge.kostal.gridmeter.Config;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {
@@ -12,6 +12,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
     private String id;
     private String modbusId;
+    private boolean wordwrap;
+    private boolean inverter; 
     private int modbusUnitId;
     private MeterType type;
 
@@ -31,12 +33,17 @@ public class MyConfig extends AbstractComponentConfig implements Config {
       this.modbusUnitId = modbusUnitId;
       return this;
     }
+    
+    public Builder setWordwrap(boolean wordwrap) {
+        this.wordwrap = wordwrap;
+        return this;
+      }    
 
-    public Builder setType(MeterType type) {
-      this.type = type;
-      return this;
-    }
-
+    public Builder setViaInverter(boolean inverter) {
+        this.inverter = inverter;
+        return this;
+      } 
+    
     public MyConfig build() {
       return new MyConfig(this);
     }
@@ -74,5 +81,15 @@ public class MyConfig extends AbstractComponentConfig implements Config {
   @Override
   public int modbusUnitId() {
     return this.builder.modbusUnitId;
+  }
+  
+  @Override
+  public boolean wordwrap() {
+    return this.builder.wordwrap;
+  }
+  
+  @Override
+  public boolean viaInverter() {
+    return this.builder.inverter;
   }
 }

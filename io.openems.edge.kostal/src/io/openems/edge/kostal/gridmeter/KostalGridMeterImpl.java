@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.gridmeter.modbus;
+package io.openems.edge.kostal.gridmeter;
 
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 

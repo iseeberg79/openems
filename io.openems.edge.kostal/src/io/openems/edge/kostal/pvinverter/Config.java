@@ -5,7 +5,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition(
   name = "PV-Inverter Kostal Plenticore", //
-  description = "Implements the Kostal Plenticore hybrid inverter."
+  description = "Implements the Kostal Plenticore hybrid inverter (PV)"
 )
 @interface Config {
   @AttributeDefinition(
