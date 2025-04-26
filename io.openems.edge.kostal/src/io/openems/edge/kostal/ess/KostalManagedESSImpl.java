@@ -318,7 +318,9 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 				new FC16WriteRegistersTask(1034, m(
 						KostalManagedESS.ChannelId.SET_ACTIVE_POWER,
 						new FloatDoublewordElement(1034).wordOrder(LSWMSW))));
+
 	}
+	
 
 	/**
 	 * Provides a debug log message summarizing the current state.
