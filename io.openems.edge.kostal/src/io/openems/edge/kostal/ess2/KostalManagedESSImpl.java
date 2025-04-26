@@ -122,7 +122,8 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	public KostalManagedESSImpl() {
 		super(OpenemsComponent.ChannelId.values(),
 				ModbusComponent.ChannelId.values(),
-				SymmetricEss.ChannelId.values(), HybridEss.ChannelId.values(),
+				SymmetricEss.ChannelId.values(), 
+				HybridEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
 				KostalManagedESS.ChannelId.values());
 	}
