@@ -1,4 +1,4 @@
-package io.openems.edge.predictor.solartariff;
+package io.openems.edge.evcc_api.solartariff;
 
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;

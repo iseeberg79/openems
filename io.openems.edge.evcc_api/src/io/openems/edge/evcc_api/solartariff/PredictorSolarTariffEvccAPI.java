@@ -1,4 +1,4 @@
-package io.openems.edge.predictor.solartariff;
+package io.openems.edge.evcc_api.solartariff;
 
 import java.io.BufferedReader;
 import java.io.IOException;

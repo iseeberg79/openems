@@ -1,8 +1,8 @@
-package io.openems.edge.predictor.solartariff;
+package io.openems.edge.evcc_api.solartariff;
 
 import io.openems.common.test.AbstractComponentConfig;
+import io.openems.edge.evcc_api.solartariff.Config;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
-import io.openems.edge.predictor.solartariff.Config;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {

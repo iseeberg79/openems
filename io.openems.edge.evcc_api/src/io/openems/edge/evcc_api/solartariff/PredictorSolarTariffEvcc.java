@@ -1,4 +1,4 @@
-package io.openems.edge.predictor.solartariff;
+package io.openems.edge.evcc_api.solartariff;
 
 import org.osgi.service.event.EventHandler;
 import io.openems.common.channel.AccessMode;

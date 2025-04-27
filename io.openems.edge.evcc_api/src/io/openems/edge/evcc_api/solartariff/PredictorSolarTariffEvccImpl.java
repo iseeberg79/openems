@@ -1,4 +1,4 @@
-package io.openems.edge.predictor.solartariff;
+package io.openems.edge.evcc_api.solartariff;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
