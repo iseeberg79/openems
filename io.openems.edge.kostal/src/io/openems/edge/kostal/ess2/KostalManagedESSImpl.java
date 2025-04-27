@@ -1,10 +1,13 @@
-package io.openems.edge.kostal.ess;
+package io.openems.edge.kostal.ess2;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -39,17 +42,19 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.kostal.enums.ControlMode;
+import io.openems.edge.kostal.ess2.charger.KostalDcCharger;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
-@Component(name = "Ess.Kostal.Plenticore", immediate = true, configurationPolicy = ConfigurationPolicy.REQUIRE)
+@Component(name = "Ess.Kostal.Plenticore.hybrid", immediate = true, configurationPolicy = ConfigurationPolicy.REQUIRE)
 @EventTopics({ //
 		EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE,
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE, //
@@ -61,6 +66,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 			KostalManagedESS,
 			ManagedSymmetricEss,
 			SymmetricEss,
+			HybridEss,
 			ModbusComponent,
 			TimedataProvider,
 			EventHandler,
@@ -90,19 +96,24 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	private Instant lastApplyPower = Instant.MIN;
 	private Integer lastSetPower = 0;
 
+	private final List<KostalDcCharger> chargers = new ArrayList<>();
+
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timeData;
 
 	private ControlMode controlMode;
 	private int minsoc = 5;
+	private int watchdog = 30;
 	private int tolerance = 20;
-	private int watchdog = 30;	
 
-	// is DC power for consistency
 	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(
 			this, SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
 	private final CalculateEnergyFromPower calculateAcDischargeEnergy = new CalculateEnergyFromPower(
 			this, SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateDcChargeEnergy = new CalculateEnergyFromPower(
+			this, HybridEss.ChannelId.DC_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateDcDischargeEnergy = new CalculateEnergyFromPower(
+			this, HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
 
 	/**
 	 * Constructor for KostalManagedESSImpl. Initializes the component with
@@ -146,17 +157,6 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 		this.watchdog = config.watchdog();
 		this.tolerance = config.tolerance();
 
-		// // Initialize controller reference filter
-		// try {
-		// if (OpenemsComponent.updateReferenceFilter(this.cm,
-		// this.servicePid(), "ctrl", config.ctrl_id())) {
-		// return;
-		// }
-		// } catch (Exception e) {
-		// this.ctrl = null;
-		// this.mode = -1;
-		// // Ignore exception for failed reference
-		// }
 	}
 
 	/**
@@ -166,6 +166,16 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	@Deactivate
 	protected void deactivate() {
 		super.deactivate();
+	}
+
+	@Override
+	public void addCharger(KostalDcCharger charger) {
+		this.chargers.add(charger);
+	}
+
+	@Override
+	public void removeCharger(KostalDcCharger charger) {
+		this.chargers.remove(charger);
 	}
 
 	/**
@@ -277,7 +287,11 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						m(KostalManagedESS.ChannelId.GRID_VOLTAGE_L3,
 								new FloatDoublewordElement(170)
 										.wordOrder(LSWMSW)),
-						new DummyRegisterElement(172, 173), //
+						m(SymmetricEss.ChannelId.ACTIVE_POWER,
+								new FloatDoublewordElement(172) // ist AC,
+																// besser DC aus
+																// 1066?
+										.wordOrder(LSWMSW)),
 						m(SymmetricEss.ChannelId.REACTIVE_POWER,
 								new FloatDoublewordElement(174)
 										.wordOrder(LSWMSW)),
@@ -301,7 +315,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						m(SymmetricEss.ChannelId.MAX_APPARENT_POWER,
 								new UnsignedWordElement(531)),
 						new DummyRegisterElement(532, 581), //
-						m(SymmetricEss.ChannelId.ACTIVE_POWER,
+						m(HybridEss.ChannelId.DC_DISCHARGE_POWER,
 								new SignedWordElement(582))),
 				new FC3ReadRegistersTask(1034, Priority.LOW,
 						m(KostalManagedESS.ChannelId.CHARGE_POWER,
@@ -318,9 +332,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 				new FC16WriteRegistersTask(1034, m(
 						KostalManagedESS.ChannelId.SET_ACTIVE_POWER,
 						new FloatDoublewordElement(1034).wordOrder(LSWMSW))));
-
 	}
-	
 
 	/**
 	 * Provides a debug log message summarizing the current state.
@@ -347,7 +359,10 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						.value().asStringWithoutUnit()
 				+ "|ChargePower:"
 				+ this.channel(KostalManagedESS.ChannelId.CHARGE_POWER).value()
-						.asString();
+						.asString() //
+				+ "|SurplusPower:" + getSurplusPower() //
+				+ "|" + this.getGridModeChannel().value().asOptionString() //
+		;
 	}
 
 	/**
@@ -454,26 +469,83 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	}
 
 	private void calculateEnergy() {
+
+		// get AC/DC Power
+		var activeDcPower = this.getDcDischargePowerChannel().getNextValue()
+				.get();
+
+		var activeAcPower = TypeUtils.sum(calculatePvProduction(),
+				activeDcPower);
+		// TODO decide... what is correct?
+		activeAcPower = this.getActivePowerChannel().getNextValue().get();
+
 		// Calculate AC Energy
-		var activePower = this.getActivePowerChannel().getNextValue().get();
-		if (activePower == null) {
+		if (activeAcPower == null) {
 			// Not available
 			this.calculateAcChargeEnergy.update(null);
 			this.calculateAcDischargeEnergy.update(null);
+		} else if (activeAcPower > 0) {
+			// Discharge
+			this.calculateAcChargeEnergy.update(0);
+			this.calculateAcDischargeEnergy.update(activeAcPower);
+		} else {
+			// Charge
+			this.calculateAcChargeEnergy.update(activeAcPower * -1);
+			this.calculateAcDischargeEnergy.update(0);
+		}
+
+		// Calculate DC Energy
+		if (activeDcPower == null) {
+			// Not available
+			this.calculateDcChargeEnergy.update(null);
+			this.calculateDcDischargeEnergy.update(null);
 		} else {
 			if (config.debugMode())
 				System.out.println(
 						"valid active power for calculation of energy");
-			if (activePower > 0) {
+			if (activeDcPower > 0) {
 				// Discharge
-				this.calculateAcChargeEnergy.update(0);
-				this.calculateAcDischargeEnergy.update(activePower);
+				this.calculateDcChargeEnergy.update(0);
+				this.calculateDcDischargeEnergy.update(activeDcPower);
 			} else {
 				// Charge
-				this.calculateAcChargeEnergy.update(activePower * -1);
-				this.calculateAcDischargeEnergy.update(0);
+				this.calculateDcChargeEnergy.update(activeDcPower * -1);
+				this.calculateDcDischargeEnergy.update(0);
 			}
 		}
+	}
+
+	private int calculatePvProduction() {
+		ListIterator<KostalDcCharger> i = chargers.listIterator();
+		int pvPower = 0;
+		while (i.hasNext()) {
+			KostalDcCharger c = i.next();
+			Integer power = c.getActualPower().get();
+			if (power != null) {
+				pvPower += power;
+			}
+		}
+		return pvPower;
+	}
+
+	@Override
+	public Integer getSurplusPower() {
+		var allowed = this.getAllowedChargePower().get();
+		var chargePower = this.getDcDischargePower().get();
+		int surplusPower = 0;
+		if (allowed != null && allowed == 0) {
+			surplusPower = calculatePvProduction();
+		} else {
+			if (chargePower != null && chargePower < 0) {
+				surplusPower = chargePower + calculatePvProduction();
+			}
+		}
+		// TODO subtract home consumption (summarize modbus registers
+		// 106+108+116 or 106+116 (float))
+		if (surplusPower > 0) {
+			return surplusPower;
+		}
+		return null;
 	}
 
 }

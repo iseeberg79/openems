@@ -15,14 +15,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String modbusId;
 		private int modbusUnitId;
 		private int capacity;
-		// private String inverter_id;
-		// private String core_target;
 		private String ctrl_id;
 		private String ctrl_target;
 
 		private MeterType type;
 		public int minsoc;
 		public int watchdog;
+		private int tolerance;
 		public boolean debugMode;
 
 		private Builder() {
@@ -58,20 +57,15 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
+		public Builder setTolerance(int tolerance) {
+			this.tolerance = tolerance;
+			return this;
+		}
+		
 		public Builder setMinSoc(int minsoc) {
 			this.minsoc = minsoc;
 			return this;
 		}
-
-		// public Builder setInverter_id(String inverter_id) {
-		// this.inverter_id = inverter_id;
-		// return this;
-		// }
-
-		// public Builder setCore_target(String core_target) {
-		// this.core_target = core_target;
-		// return this;
-		// }
 
 		public Builder setCtrlId(String ctrl_id) {
 			this.ctrl_id = ctrl_id;
@@ -87,11 +81,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			this.debugMode = debugMode;
 			return this;
 		}
-		
-		// public Builder setControllerTarget(String controller_target) {
-		// this.controller_target = controller_target;
-		// return this;
-		// }
 
 		public MyConfig build() {
 			return new MyConfig(this);
@@ -134,16 +123,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.capacity;
 	}
 
-	// @Override
-	// public String inverter_id() {
-	// return this.builder.inverter_id;
-	// }
-
-	// @Override
-	// public String core_target() {
-	// return this.builder.core_target;
-	// }
-
 	@Override
 	public ControlMode controlMode() {
 		// TODO Auto-generated method stub
@@ -161,22 +140,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public String ctrl_id() {
-		return this.builder.ctrl_id;
-	}
-
-	@Override
-	public String ctrl_target() {
-		return this.builder.ctrl_target;
-	}
-
-	@Override
 	public boolean debugMode() {
 		return this.builder.debugMode;
 	}
 
-	// @Override
-	// public String ctrl_target() {
-	// return this.builder.controller_target;
-	// }
+	@Override
+	public int tolerance() {
+		return this.builder.tolerance;
+	}
+
 }

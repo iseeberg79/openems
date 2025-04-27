@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.gridmeter.modbus;
+package io.openems.edge.kostal.gridmeter;
 
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
