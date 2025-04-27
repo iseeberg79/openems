@@ -61,6 +61,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		EdgeEventConstants.TOPIC_CYCLE_BEFORE_CONTROLLERS //
 })
 
+@Deprecated
 public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 		implements
 			KostalManagedESS,

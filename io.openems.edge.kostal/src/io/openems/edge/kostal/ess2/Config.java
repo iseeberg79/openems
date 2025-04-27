@@ -8,7 +8,7 @@ import io.openems.edge.kostal.enums.ControlMode;
 @ObjectClassDefinition(
 		//
 		name = "ESS Kostal Plenticore Hybrid", //
-		description = "Implements the Kostal Plenticore hybrid energy storage system (battery)")
+		description = "Implements the Kostal Plenticore hybrid energy storage system (battery) [testing]")
 @interface Config {
 	@AttributeDefinition(name = "Component-ID", description = "Unique ID of this Component")
 	String id() default "ess0";

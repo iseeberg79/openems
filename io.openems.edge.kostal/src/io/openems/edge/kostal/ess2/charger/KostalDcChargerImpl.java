@@ -52,6 +52,8 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		// EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE, //
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 })
+
+@Deprecated
 public class KostalDcChargerImpl extends AbstractOpenemsModbusComponent
 		implements
 			KostalDcCharger,
