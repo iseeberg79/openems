@@ -530,13 +530,13 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 
 	@Override
 	public Integer getSurplusPower() {
-		int allowed = Math.abs(this.getAllowedChargePower().get());
-		int chargePower = this.getDcDischargePower().get();
+		var allowed = this.getAllowedChargePower().get();
+		var chargePower = this.getDcDischargePower().get();
 		int surplusPower = 0;
-		if (allowed == 0) {
+		if (allowed != null && allowed == 0) {
 			surplusPower = calculatePvProduction();
 		} else {
-			if (chargePower < 0) {
+			if (chargePower != null && chargePower < 0) {
 				surplusPower = chargePower + calculatePvProduction();
 			}
 		}
