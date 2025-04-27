@@ -79,7 +79,7 @@ public class KostalDcChargerImpl extends AbstractOpenemsModbusComponent
 
 	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
 	private KostalManagedESS ess;
-	
+
 	protected Config config;
 
 	public KostalDcChargerImpl() {
@@ -106,7 +106,7 @@ public class KostalDcChargerImpl extends AbstractOpenemsModbusComponent
 		if (!config.enabled()) {
 			return;
 		}
-		
+
 		try {
 			// update filter for 'Ess'
 			if (OpenemsComponent.updateReferenceFilter(this.cm,
@@ -172,9 +172,25 @@ public class KostalDcChargerImpl extends AbstractOpenemsModbusComponent
 	public void handleEvent(Event event) {
 		switch (event.getTopic()) {
 			case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE :
-				this.calculateProductionEnergy
-						.update(this.getActualPower().get());
+				calculateEnergy();
 				break;
+		}
+	}
+
+	private void calculateEnergy() {
+		// Calculate AC Energy
+		var activePower = this.getActualPower().get();
+		if (activePower == null) {
+			// Not available
+			this.calculateProductionEnergy.update(null);
+		} else {
+			if (activePower > 0) {
+				// Production
+				this.calculateProductionEnergy.update(0);
+				this.calculateProductionEnergy.update(activePower);
+			} else {
+				this.calculateProductionEnergy.update(0);
+			}
 		}
 	}
 
