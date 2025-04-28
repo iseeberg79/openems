@@ -26,6 +26,7 @@ import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.SignedDoublewordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
@@ -116,8 +117,27 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 				return new ModbusProtocol(this, //
 						new FC3ReadRegistersTask(40972, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-										new SignedDoublewordElement(40972)) //
-						));
+										new SignedDoublewordElement(40972)) //			
+						),
+						new FC3ReadRegistersTask(60, Priority.LOW, //
+								m(ElectricityMeter.ChannelId.CURRENT_L1,
+										new UnsignedDoublewordElement(60)), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
+										new UnsignedDoublewordElement(62))
+								), //
+						new FC3ReadRegistersTask(100, Priority.LOW, //
+								m(ElectricityMeter.ChannelId.CURRENT_L2,
+										new UnsignedDoublewordElement(100)), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+										new UnsignedDoublewordElement(102)) //
+								),
+						new FC3ReadRegistersTask(140, Priority.LOW, //
+								m(ElectricityMeter.ChannelId.CURRENT_L3,
+										new UnsignedDoublewordElement(140)), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+										new UnsignedDoublewordElement(142))
+								)
+				);
 			} else {
 				return new ModbusProtocol(this, //
 						new FC3ReadRegistersTask(40972, Priority.HIGH, //
