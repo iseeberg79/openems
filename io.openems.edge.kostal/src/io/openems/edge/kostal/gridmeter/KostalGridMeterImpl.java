@@ -119,6 +119,10 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
 										new SignedDoublewordElement(40972)) //			
 						),
+						new FC3ReadRegistersTask(26, Priority.LOW, //
+								m(ElectricityMeter.ChannelId.FREQUENCY,
+										new SignedDoublewordElement(26)) //
+								), //
 						new FC3ReadRegistersTask(60, Priority.LOW, //
 								m(ElectricityMeter.ChannelId.CURRENT_L1,
 										new UnsignedDoublewordElement(60)), //
@@ -128,7 +132,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 						new FC3ReadRegistersTask(100, Priority.LOW, //
 								m(ElectricityMeter.ChannelId.CURRENT_L2,
 										new UnsignedDoublewordElement(100)), //
-								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+								m(ElectricityMeter.ChannelId.VOLTAGE_L2,
 										new UnsignedDoublewordElement(102)) //
 								),
 						new FC3ReadRegistersTask(140, Priority.LOW, //
