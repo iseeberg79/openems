@@ -1,6 +1,10 @@
 package io.openems.edge.kostal.gridmeter;
 
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
+
+import java.util.function.Consumer;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -28,6 +32,8 @@ import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.SignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
+import io.openems.edge.common.channel.IntegerReadChannel;
+import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
@@ -118,7 +124,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 						new FC3ReadRegistersTask(40972, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
 										new SignedDoublewordElement(40972)) //			
-						),
+								),
 						new FC3ReadRegistersTask(26, Priority.LOW, //
 								m(ElectricityMeter.ChannelId.FREQUENCY,
 										new SignedDoublewordElement(26)) //
@@ -140,8 +146,15 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 										new UnsignedDoublewordElement(140)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
 										new UnsignedDoublewordElement(142))
-								)
-				);
+								),
+						new FC3ReadRegistersTask(0, Priority.HIGH,
+								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER, new UnsignedDoublewordElement(0), SCALE_FACTOR_MINUS_1),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, new UnsignedDoublewordElement(2), SCALE_FACTOR_MINUS_1)
+								),
+						new FC3ReadRegistersTask(40, Priority.HIGH,
+								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1, new UnsignedDoublewordElement(40), SCALE_FACTOR_MINUS_1),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, new UnsignedDoublewordElement(42), SCALE_FACTOR_MINUS_1)
+								));
 			} else {
 				return new ModbusProtocol(this, //
 						new FC3ReadRegistersTask(40972, Priority.HIGH, //
@@ -172,6 +185,18 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	public String debugLog() {
 		return "L:" + this.getActivePower().asString();
+	}
+	
+	private void addCalculateChannelListeners() {
+		// Active Power
+		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
+				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, ElectricityMeter.ChannelId.ACTIVE_POWER);
+		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1,
+				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, ElectricityMeter.ChannelId.ACTIVE_POWER_L1);
+		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L2,
+				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, ElectricityMeter.ChannelId.ACTIVE_POWER_L2);
+		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3,
+				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, ElectricityMeter.ChannelId.ACTIVE_POWER_L3);
 	}
 
 	@Override
@@ -220,5 +245,46 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	public MeterType getMeterType() {
 		return MeterType.GRID;
+	}
+	
+	private static class CalculatePower implements Consumer<Value<Integer>> {
+
+		private final IntegerReadChannel consChannel;
+		private final IntegerReadChannel prodChannel;
+		private final IntegerReadChannel targetChannel;
+
+		public static CalculatePower of(KostalGridMeter parent,
+				io.openems.edge.common.channel.ChannelId consChannelId,
+				io.openems.edge.common.channel.ChannelId prodChannelId,
+				io.openems.edge.common.channel.ChannelId targetChannelId) {
+			return new CalculatePower(parent, consChannelId, prodChannelId, targetChannelId);
+		}
+
+		private CalculatePower(KostalGridMeter parent, io.openems.edge.common.channel.ChannelId consChannelId,
+				io.openems.edge.common.channel.ChannelId prodChannelId,
+				io.openems.edge.common.channel.ChannelId targetChannelId) {
+
+			// Get actual Channels
+			this.consChannel = parent.channel(consChannelId);
+			this.prodChannel = parent.channel(prodChannelId);
+			this.targetChannel = parent.channel(targetChannelId);
+
+			// Add Listeners
+			this.prodChannel.onSetNextValue(this);
+			this.consChannel.onSetNextValue(this);
+		}
+
+		@Override
+		public void accept(Value<Integer> ignore) {
+			var prodValue = this.prodChannel.getNextValue();
+			var consValue = this.consChannel.getNextValue();
+			final Integer result;
+			if (prodValue.isDefined() && consValue.isDefined()) {
+				result = prodValue.get() - consValue.get();
+			} else {
+				result = null;
+			}
+			this.targetChannel.setNextValue(result);
+		}
 	}
 }

@@ -26,7 +26,25 @@ public interface KostalGridMeter
 		SCALE_FACTOR_FREQUENCY(Doc.of(OpenemsType.INTEGER).unit(Unit.HERTZ)),
 		//
 		REAL_IMPORTED_ENERGY(Doc.of(OpenemsType.DOUBLE).unit(Unit.WATT_HOURS)),
-		REAL_EXPORTED_ENERGY(Doc.of(OpenemsType.DOUBLE).unit(Unit.WATT_HOURS));
+		REAL_EXPORTED_ENERGY(Doc.of(OpenemsType.DOUBLE).unit(Unit.WATT_HOURS)),
+		
+		ACTIVE_PRODUCTION_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_CONSUMPTION_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_CONSUMPTION_POWER_L1(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_CONSUMPTION_POWER_L2(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_CONSUMPTION_POWER_L3(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_PRODUCTION_POWER_L1(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_PRODUCTION_POWER_L2(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		ACTIVE_PRODUCTION_POWER_L3(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT)), //
+		;
 	  
     private final Doc doc;
 
