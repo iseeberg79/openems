@@ -98,6 +98,8 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 		
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
 		ElectricityMeter.calculateAverageVoltageFromPhases(this);
+		// Automatically calculate sum values from L1/L2/L3
+		ElectricityMeter.calculateSumActivePowerFromPhases(this);
 	}
 
 	@Activate
