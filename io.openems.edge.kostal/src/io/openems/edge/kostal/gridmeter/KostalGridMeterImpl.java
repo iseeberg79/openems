@@ -1,6 +1,7 @@
 package io.openems.edge.kostal.gridmeter;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
@@ -120,72 +121,134 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	}
 
 	@Override
-	protected ModbusProtocol defineModbusProtocol() {		
-		// read directly or read via Inverter?
-		if (!config.viaInverter()) {
-			// DEFAULT ("big endian")
-			// i.e. word-wrapped encoding: LSWMSW vs. MWSLSW
-			if (!config.wordwrap()) {
-				var modbusProtocol = new ModbusProtocol(this, //
-						/*new FC3ReadRegistersTask(40972, Priority.HIGH, //
-								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-										new SignedDoublewordElement(40972)) //			
-								),*/
-						new FC3ReadRegistersTask(26, Priority.LOW, //
-								m(ElectricityMeter.ChannelId.FREQUENCY,
-										new SignedDoublewordElement(26)) //
-								), //
-						new FC3ReadRegistersTask(60, Priority.LOW, //
-								m(ElectricityMeter.ChannelId.CURRENT_L1,
-										new UnsignedDoublewordElement(60)), //
-								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
-										new UnsignedDoublewordElement(62))
-								), //
-						new FC3ReadRegistersTask(100, Priority.LOW, //
-								m(ElectricityMeter.ChannelId.CURRENT_L2,
-										new UnsignedDoublewordElement(100)), //
-								m(ElectricityMeter.ChannelId.VOLTAGE_L2,
-										new UnsignedDoublewordElement(102)) //
-								),
-						new FC3ReadRegistersTask(140, Priority.LOW, //
-								m(ElectricityMeter.ChannelId.CURRENT_L3,
-										new UnsignedDoublewordElement(140)), //
-								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
-										new UnsignedDoublewordElement(142))
-								),
-						new FC3ReadRegistersTask(0, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER, new UnsignedDoublewordElement(0), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, new UnsignedDoublewordElement(2), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER, new UnsignedDoublewordElement(4), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER, new UnsignedDoublewordElement(6), SCALE_FACTOR_MINUS_1)	
-								),
-						new FC3ReadRegistersTask(40, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1, new UnsignedDoublewordElement(40),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, new UnsignedDoublewordElement(42), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L1, new UnsignedDoublewordElement(44),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1, new UnsignedDoublewordElement(46), SCALE_FACTOR_MINUS_1)
-								),
-						new FC3ReadRegistersTask(80, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L2, new UnsignedDoublewordElement(80), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, new UnsignedDoublewordElement(82), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L2, new UnsignedDoublewordElement(84),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L2, new UnsignedDoublewordElement(86), SCALE_FACTOR_MINUS_1)
-								),
-						new FC3ReadRegistersTask(120, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3, new UnsignedDoublewordElement(120), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L3, new UnsignedDoublewordElement(124),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L3, new UnsignedDoublewordElement(126), SCALE_FACTOR_MINUS_1)
-								)
-						);
-				// Calculates required Channels from other existing Channels.
-				this.addCalculateChannelListeners();
-				
-				return modbusProtocol; 
-			}
+	protected ModbusProtocol defineModbusProtocol() {
+		boolean viaInverter = config.viaInverter();
+		boolean wordwrap = config.wordwrap();
+		
+		ModbusProtocol protocol;
+		if (!viaInverter) {
+			protocol = wordwrap ? defineDirectWithWordwrap() : defineDirect();
+		} else {
+			protocol = wordwrap ? defineViaInverterWithWordwrap() : defineViaInverter();
 		}
-		return null;
+		this.addCalculateChannelListeners();
+		return protocol;
 	}
+
+	private ModbusProtocol defineDirect() {
+		return new ModbusProtocol(this,
+				new FC3ReadRegistersTask(26, Priority.LOW,
+						m(ElectricityMeter.ChannelId.FREQUENCY, new SignedDoublewordElement(26))),
+				new FC3ReadRegistersTask(60, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L1, new UnsignedDoublewordElement(60)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new UnsignedDoublewordElement(62))),
+				new FC3ReadRegistersTask(100, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L2, new UnsignedDoublewordElement(100)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new UnsignedDoublewordElement(102))),
+				new FC3ReadRegistersTask(140, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L3, new UnsignedDoublewordElement(140)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L3, new UnsignedDoublewordElement(142))),
+				createPowerTasks(0),
+				createPhasePowerTasks(40),
+				createPhasePowerTasks(80),
+				createPhasePowerTasks(120));
+	}
+
+	private ModbusProtocol defineDirectWithWordwrap() {
+		return new ModbusProtocol(this,
+				new FC3ReadRegistersTask(26, Priority.LOW,
+						m(ElectricityMeter.ChannelId.FREQUENCY, new SignedDoublewordElement(26).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(60, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L1, new UnsignedDoublewordElement(60).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new UnsignedDoublewordElement(62).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(100, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L2, new UnsignedDoublewordElement(100).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new UnsignedDoublewordElement(102).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(140, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L3, new UnsignedDoublewordElement(140).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.VOLTAGE_L3, new UnsignedDoublewordElement(142).wordOrder(LSWMSW))),
+				createPowerTasks(0, true),
+				createPhasePowerTasks(40, true),
+				createPhasePowerTasks(80, true),
+				createPhasePowerTasks(120, true));
+	}
+
+	private ModbusProtocol defineViaInverter() {
+		return new ModbusProtocol(this,
+				new FC3ReadRegistersTask(220, Priority.LOW,
+						m(ElectricityMeter.ChannelId.FREQUENCY, new FloatDoublewordElement(220), SCALE_FACTOR_3)),
+				new FC3ReadRegistersTask(222, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L1, new FloatDoublewordElement(222), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new FloatDoublewordElement(224)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, new FloatDoublewordElement(226))),
+				new FC3ReadRegistersTask(230, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new FloatDoublewordElement(230)),
+						m(ElectricityMeter.ChannelId.CURRENT_L2, new FloatDoublewordElement(232), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new FloatDoublewordElement(234)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, new FloatDoublewordElement(236))),
+				new FC3ReadRegistersTask(240, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new FloatDoublewordElement(240)),
+						m(ElectricityMeter.ChannelId.CURRENT_L3, new FloatDoublewordElement(242), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new FloatDoublewordElement(244)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, new FloatDoublewordElement(246))),
+				new FC3ReadRegistersTask(250, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L3, new FloatDoublewordElement(250)),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(252)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER, new FloatDoublewordElement(254))));
+	}
+
+	private ModbusProtocol defineViaInverterWithWordwrap() {
+		return new ModbusProtocol(this,
+				new FC3ReadRegistersTask(220, Priority.LOW,
+						m(ElectricityMeter.ChannelId.FREQUENCY, new FloatDoublewordElement(220).wordOrder(LSWMSW), SCALE_FACTOR_3)),
+				new FC3ReadRegistersTask(222, Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L1, new FloatDoublewordElement(222).wordOrder(LSWMSW), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new FloatDoublewordElement(224).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, new FloatDoublewordElement(226).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(230, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new FloatDoublewordElement(230).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.CURRENT_L2, new FloatDoublewordElement(232).wordOrder(LSWMSW), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new FloatDoublewordElement(234).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, new FloatDoublewordElement(236).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(240, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new FloatDoublewordElement(240).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.CURRENT_L3, new FloatDoublewordElement(242).wordOrder(LSWMSW), SCALE_FACTOR_3),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new FloatDoublewordElement(244).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, new FloatDoublewordElement(246).wordOrder(LSWMSW))),
+				new FC3ReadRegistersTask(250, Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L3, new FloatDoublewordElement(250).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(252).wordOrder(LSWMSW)),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER, new FloatDoublewordElement(254).wordOrder(LSWMSW))));
+	}
+
+	private FC3ReadRegistersTask createPowerTasks(int baseAddress) {
+		return createPowerTasks(baseAddress, false);
+	}
+
+	private FC3ReadRegistersTask createPowerTasks(int baseAddress, boolean wordWrapped) {
+		return new FC3ReadRegistersTask(baseAddress, Priority.HIGH,
+				m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER, createElement(baseAddress, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, createElement(baseAddress + 2, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER, createElement(baseAddress + 4, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER, createElement(baseAddress + 6, wordWrapped), SCALE_FACTOR_MINUS_1));
+	}
+
+	private FC3ReadRegistersTask createPhasePowerTasks(int baseAddress) {
+		return createPhasePowerTasks(baseAddress, false);
+	}
+
+	private FC3ReadRegistersTask createPhasePowerTasks(int baseAddress, boolean wordWrapped) {
+		return new FC3ReadRegistersTask(baseAddress, Priority.HIGH,
+				m(KostalGridMeter.ChannelId.valueOf("ACTIVE_CONSUMPTION_POWER_L" + ((baseAddress - 40) / 40 + 1)), createElement(baseAddress, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.valueOf("ACTIVE_PRODUCTION_POWER_L" + ((baseAddress - 40) / 40 + 1)), createElement(baseAddress + 2, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.valueOf("ACTIVE_CONSUMPTION_REACTIVE_POWER_L" + ((baseAddress - 40) / 40 + 1)), createElement(baseAddress + 4, wordWrapped), SCALE_FACTOR_MINUS_1),
+				m(KostalGridMeter.ChannelId.valueOf("ACTIVE_PRODUCTION_REACTIVE_POWER_L" + ((baseAddress + 6) / 2 - 19)), createElement(baseAddress + 6, wordWrapped), SCALE_FACTOR_MINUS_1));
+	}
+
+	private UnsignedDoublewordElement createElement(int address, boolean wordWrapped) {
+		return wordWrapped ? new UnsignedDoublewordElement(address).wordOrder(LSWMSW) : new UnsignedDoublewordElement(address);
+	}
+
 
 	@Override
 	public String debugLog() {
