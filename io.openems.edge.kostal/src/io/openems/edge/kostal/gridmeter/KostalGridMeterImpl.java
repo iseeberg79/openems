@@ -155,66 +155,36 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								),
 						new FC3ReadRegistersTask(0, Priority.HIGH,
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER, new UnsignedDoublewordElement(0), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, new UnsignedDoublewordElement(2), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true)),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, new UnsignedDoublewordElement(2), SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER, new UnsignedDoublewordElement(4), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER, new UnsignedDoublewordElement(6), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true))	
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER, new UnsignedDoublewordElement(6), SCALE_FACTOR_MINUS_1)	
 								),
 						new FC3ReadRegistersTask(40, Priority.HIGH,
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1, new UnsignedDoublewordElement(40),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, new UnsignedDoublewordElement(42), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true)),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, new UnsignedDoublewordElement(42), SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L1, new UnsignedDoublewordElement(44),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1, new UnsignedDoublewordElement(46), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true))
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1, new UnsignedDoublewordElement(46), SCALE_FACTOR_MINUS_1)
 								),
 						new FC3ReadRegistersTask(80, Priority.HIGH,
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L2, new UnsignedDoublewordElement(80), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, new UnsignedDoublewordElement(82), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true)),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, new UnsignedDoublewordElement(82), SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L2, new UnsignedDoublewordElement(84),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L2, new UnsignedDoublewordElement(86), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true))
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L2, new UnsignedDoublewordElement(86), SCALE_FACTOR_MINUS_1)
 								),
 						new FC3ReadRegistersTask(120, Priority.HIGH,
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3, new UnsignedDoublewordElement(120), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true)),
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L3, new UnsignedDoublewordElement(124),SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L3, new UnsignedDoublewordElement(126), SCALE_FACTOR_MINUS_1_AND_INVERT_IF_TRUE(true))
+								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L3, new UnsignedDoublewordElement(126), SCALE_FACTOR_MINUS_1)
 								)
 						);
 				// Calculates required Channels from other existing Channels.
 				this.addCalculateChannelListeners();
 				
 				return modbusProtocol; 
-				
-			} else {
-				System.out.println("ToDo"); 	
-				var modbusProtocol = new ModbusProtocol(this, //
-						new FC3ReadRegistersTask(120, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3, new UnsignedDoublewordElement(120), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1)
-								)
-						);
-				return modbusProtocol; 
-				}
-		} else {
-			// DEFAULT ("little endian")
-			if (config.wordwrap()) {
-				System.out.println("ToDo"); 	
-				var modbusProtocol = new ModbusProtocol(this, //
-						new FC3ReadRegistersTask(120, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3, new UnsignedDoublewordElement(120), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1)
-								)
-						);
-				return modbusProtocol; 
-			} else {
-				System.out.println("ToDo"); 	
-				var modbusProtocol = new ModbusProtocol(this, //
-						new FC3ReadRegistersTask(120, Priority.HIGH,
-								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3, new UnsignedDoublewordElement(120), SCALE_FACTOR_MINUS_1),
-								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, new UnsignedDoublewordElement(122), SCALE_FACTOR_MINUS_1)
-								)
-						);
-				return modbusProtocol; 
 			}
 		}
+		return null;
 	}
 
 	@Override
@@ -223,22 +193,29 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	}
 	
 	private void addCalculateChannelListeners() {
-		// Active Power
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, ElectricityMeter.ChannelId.ACTIVE_POWER);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, ElectricityMeter.ChannelId.ACTIVE_POWER_L1);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L1,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1, ElectricityMeter.ChannelId.REACTIVE_POWER_L1);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L2,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, ElectricityMeter.ChannelId.ACTIVE_POWER_L2);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L2,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L2, ElectricityMeter.ChannelId.REACTIVE_POWER_L2);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, ElectricityMeter.ChannelId.ACTIVE_POWER_L3);
-		CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L3,
-				KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L3, ElectricityMeter.ChannelId.REACTIVE_POWER_L3);
+	    // Active Power
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER, ElectricityMeter.ChannelId.ACTIVE_POWER);
+	    
+	    // Phase 1
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L1,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L1, ElectricityMeter.ChannelId.ACTIVE_POWER_L1);
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L1,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1, ElectricityMeter.ChannelId.REACTIVE_POWER_L1);
+	    
+	    // Phase 2
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L2,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L2, ElectricityMeter.ChannelId.ACTIVE_POWER_L2);
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L2,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L2, ElectricityMeter.ChannelId.REACTIVE_POWER_L2);
+	    
+	    // Phase 3
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER_L3,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER_L3, ElectricityMeter.ChannelId.ACTIVE_POWER_L3);
+	    CalculatePower.of(this, KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_REACTIVE_POWER_L3,
+	            KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L3, ElectricityMeter.ChannelId.REACTIVE_POWER_L3);
 	}
+
 
 	@Override
 	public void handleEvent(Event event) {
@@ -313,6 +290,9 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 			// Add Listeners
 			this.prodChannel.onSetNextValue(this);
 			this.consChannel.onSetNextValue(this);
+			
+			System.out.println(this.prodChannel); 
+			System.out.println(this.consChannel);
 		}
 
 		@Override
@@ -321,7 +301,8 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 			var consValue = this.consChannel.getNextValue();
 			final Integer result;
 			if (prodValue.isDefined() && consValue.isDefined()) {
-				result = prodValue.get() - consValue.get();
+				//result = prodValue.get() - consValue.get();
+				result = consValue.get() - prodValue.get();
 			} else {
 				result = null;
 			}
