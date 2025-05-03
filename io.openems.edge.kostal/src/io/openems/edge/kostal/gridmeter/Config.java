@@ -4,8 +4,8 @@ import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition(
-  name = "Meter KSEM-Inverter", //
-  description = "Implements the Kostal Smart Energy Meter"
+  name = "Meter Kostal Smart Energy (KSEM)", //
+  description = "Implements the Kostal Smart Energy Meter (KSEM)"
 )
 @interface Config {
   @AttributeDefinition(
@@ -47,5 +47,5 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
   )
   String Modbus_target() default "(enabled=true)";
 
-  String webconsole_configurationFactory_nameHint() default "Meter Kostal Smart Energy Meter (KSEM) [{id}]";
+  String webconsole_configurationFactory_nameHint() default "Meter Kostal Smart Energy (KSEM) [{id}]";
 }
