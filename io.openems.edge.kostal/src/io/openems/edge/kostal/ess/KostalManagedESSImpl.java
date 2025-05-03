@@ -181,7 +181,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 					&& lastSetPower == activePower
 					// TODO testing - allows moderate differences
 					&& (lastSetPower - tolerance >= activePower
-							&& lastSetPower + tolerance <= pPower)
+							&& lastSetPower + tolerance <= activePower)
 					&& Duration.between(this.lastApplyPower, now)
 							.getSeconds() < watchdog) {
 
