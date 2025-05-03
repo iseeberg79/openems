@@ -159,32 +159,14 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 								new FloatDoublewordElement(170)
 										.wordOrder(LSWMSW), SCALE_FACTOR_3)), //
 
-//				new FC3ReadRegistersTask(320, Priority.HIGH, //
-//						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY,
-//								new FloatDoublewordElement(320)
-//										.wordOrder(LSWMSW))),
-
 				new FC3ReadRegistersTask(531, Priority.LOW, //
 						m(ManagedSymmetricPvInverter.ChannelId.MAX_APPARENT_POWER,
 								new UnsignedWordElement(531))), //
-
-				// //322 PV daily yield, float
-				// new FC3ReadRegistersTask(1056, Priority.HIGH, //
-				// m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY,
-				// new FloatDoublewordElement(1056)
-				// .wordOrder(LSWMSW))),
 
 				new FC3ReadRegistersTask(1066, Priority.HIGH, //
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER,
 								new FloatDoublewordElement(1066)
 										.wordOrder(LSWMSW))));
-
-		// TODO reactive power / active power - battery power?
-
-		// new FC3ReadRegistersTask(1066, Priority.HIGH, //
-		// m(EssDcCharger.ChannelId.ACTUAL_POWER,
-		// new FloatDoublewordElement(1066)
-		// .wordOrder(LSWMSW))));
 
 	}
 

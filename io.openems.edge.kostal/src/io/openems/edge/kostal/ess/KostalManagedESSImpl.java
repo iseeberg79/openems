@@ -145,18 +145,6 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 		this.minsoc = config.minsoc();
 		this.watchdog = config.watchdog();
 		this.tolerance = config.tolerance();
-
-		// // Initialize controller reference filter
-		// try {
-		// if (OpenemsComponent.updateReferenceFilter(this.cm,
-		// this.servicePid(), "ctrl", config.ctrl_id())) {
-		// return;
-		// }
-		// } catch (Exception e) {
-		// this.ctrl = null;
-		// this.mode = -1;
-		// // Ignore exception for failed reference
-		// }
 	}
 
 	/**
@@ -193,7 +181,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 					&& lastSetPower == activePower
 					// TODO testing - allows moderate differences
 					&& (lastSetPower - tolerance >= activePower
-							&& lastSetPower + tolerance <= activePower)
+							&& lastSetPower + tolerance <= pPower)
 					&& Duration.between(this.lastApplyPower, now)
 							.getSeconds() < watchdog) {
 
