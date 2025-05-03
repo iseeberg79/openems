@@ -120,17 +120,16 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
-		// new DummyRegisterElement(156, 157), //
 		// read directly or read via Inverter?
 		if (!config.viaInverter()) {
 			// DEFAULT ("big endian")
 			// i.e. word-wrapped encoding: LSWMSW vs. MWSLSW
 			if (!config.wordwrap()) {
 				var modbusProtocol = new ModbusProtocol(this, //
-						new FC3ReadRegistersTask(0, Priority.HIGH, m(
-								KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
-								new UnsignedDoublewordElement(0),
-								SCALE_FACTOR_MINUS_1),
+						new FC3ReadRegistersTask(0, Priority.HIGH, //
+								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
+										new UnsignedDoublewordElement(0),
+										SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER,
 										new UnsignedDoublewordElement(2),
 										SCALE_FACTOR_MINUS_1),
@@ -155,8 +154,9 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 										SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1,
 										new UnsignedDoublewordElement(46),
-										SCALE_FACTOR_MINUS_1),
-								new DummyRegisterElement(48, 59), //
+										SCALE_FACTOR_MINUS_1)),
+								//new DummyRegisterElement(48, 59), //
+								new FC3ReadRegistersTask(60, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.CURRENT_L1,
 										new UnsignedDoublewordElement(60)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
@@ -196,18 +196,19 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								m(ElectricityMeter.ChannelId.CURRENT_L3,
 										new UnsignedDoublewordElement(140)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
-										new UnsignedDoublewordElement(142))));
+										new UnsignedDoublewordElement(142)) //
+								));
 				// Calculates required Channels from other existing Channels.
 				this.addCalculateChannelListeners();
 
 				return modbusProtocol;
 			} else {
 				var modbusProtocol = new ModbusProtocol(this, //
-						new FC3ReadRegistersTask(0, Priority.HIGH, m(
-								KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
-								new UnsignedDoublewordElement(0).wordOrder(
-										LSWMSW),
-								SCALE_FACTOR_MINUS_1),
+						new FC3ReadRegistersTask(0, Priority.HIGH, //
+								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
+										new UnsignedDoublewordElement(0)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_MINUS_1),
 								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_POWER,
 										new UnsignedDoublewordElement(2)
 												.wordOrder(LSWMSW),
@@ -240,8 +241,9 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1,
 										new UnsignedDoublewordElement(46)
 												.wordOrder(LSWMSW),
-										SCALE_FACTOR_MINUS_1),
-								new DummyRegisterElement(48, 59), //
+										SCALE_FACTOR_MINUS_1)),
+								//new DummyRegisterElement(48, 59), //
+								new FC3ReadRegistersTask(60, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.CURRENT_L1,
 										new UnsignedDoublewordElement(60)
 												.wordOrder(LSWMSW)), //
@@ -295,7 +297,8 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 												.wordOrder(LSWMSW)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
 										new UnsignedDoublewordElement(142)
-												.wordOrder(LSWMSW))));
+												.wordOrder(LSWMSW)) //
+								));
 				// Calculates required Channels from other existing Channels.
 				this.addCalculateChannelListeners();
 
