@@ -52,12 +52,18 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE //
 })
 public class IoShellyEmImpl extends AbstractOpenemsComponent
-		implements IoShellyEm, DigitalOutput, ElectricityMeter, OpenemsComponent, TimedataProvider, EventHandler {
+		implements
+			IoShellyEm,
+			DigitalOutput,
+			ElectricityMeter,
+			OpenemsComponent,
+			TimedataProvider,
+			EventHandler {
 
-	private final CalculateEnergyFromPower calculateProductionEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
-	private final CalculateEnergyFromPower calculateConsumptionEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY);
+	private final CalculateEnergyFromPower calculateProductionEnergy = new CalculateEnergyFromPower(
+			this, ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
+	private final CalculateEnergyFromPower calculateConsumptionEnergy = new CalculateEnergyFromPower(
+			this, ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY);
 
 	private final Logger log = LoggerFactory.getLogger(IoShellyEmImpl.class);
 	private final BooleanWriteChannel[] digitalOutputChannels;
@@ -79,7 +85,8 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 				DigitalOutput.ChannelId.values(), //
 				IoShellyEm.ChannelId.values() //
 		);
-		this.digitalOutputChannels = new BooleanWriteChannel[] { this.channel(IoShellyEm.ChannelId.RELAY) };
+		this.digitalOutputChannels = new BooleanWriteChannel[]{
+				this.channel(IoShellyEm.ChannelId.RELAY)};
 
 		ElectricityMeter.calculateSumActivePowerFromPhases(this);
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
@@ -94,7 +101,8 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 		this.httpBridge = this.httpBridgeFactory.get();
 
 		if (this.isEnabled()) {
-			this.httpBridge.subscribeJsonEveryCycle(this.baseUrl + "/status", this::processHttpResult);
+			this.httpBridge.subscribeJsonEveryCycle(this.baseUrl + "/status",
+					this::processHttpResult);
 		}
 	}
 
@@ -112,7 +120,8 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 
 	@Override
 	public String debugLog() {
-		return generateDebugLog(this.digitalOutputChannels, this.getActivePowerChannel());
+		return generateDebugLog(this.digitalOutputChannels,
+				this.getActivePowerChannel());
 	}
 
 	@Override
@@ -122,14 +131,16 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 		}
 
 		switch (event.getTopic()) {
-		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
-			-> this.calculateEnergy();
-		case EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE //
-			-> executeWrite(this.getRelayChannel(), this.baseUrl, this.httpBridge, 0);
+			case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
+				-> this.calculateEnergy();
+			case EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE //
+				-> executeWrite(this.getRelayChannel(), this.baseUrl,
+						this.httpBridge, 0);
 		}
 	}
 
-	private void processHttpResult(HttpResponse<JsonElement> result, Throwable error) {
+	private void processHttpResult(HttpResponse<JsonElement> result,
+			Throwable error) {
 		this._setSlaveCommunicationFailed(result == null);
 
 		// Prepare variables
@@ -158,38 +169,40 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 					overpower = getAsBoolean(relay, "overpower");
 				}
 
-				var update = getAsJsonObject(response, "update"); 
-				
+				var update = getAsJsonObject(response, "update");
+
 				hasUpdate = getAsBoolean(update, "has_update");
 
-				//activePower = round(getAsFloat(response, "total_power"));
+				// activePower = round(getAsFloat(response, "total_power"));
 
 				var emeters = getAsJsonArray(response, "emeters");
 				for (int i = 0; i < emeters.size(); i++) {
 					var emeter = getAsJsonObject(emeters.get(i));
 					var power = round(getAsFloat(emeter, "power"));
 					var voltage = round(getAsFloat(emeter, "voltage") * 1000);
-					var current = round(power/voltage);
+					var current = round(power / voltage);
 					var isValid = getAsBoolean(emeter, "is_valid");
 
 					switch (i + 1 /* phase */) {
-					case 1 -> {
-						activePowerL1 = power;
-						voltageL1 = voltage;
-						currentL1 = activePowerL1 / voltageL1;
+						case 1 -> {
+							activePowerL1 = power;
+							voltageL1 = voltage;
+							currentL1 = activePowerL1 / voltageL1;
 
-						this.channel(IoShellyEm.ChannelId.EMETER1_EXCEPTION).setNextValue(!isValid);
-					}
-					case 2 -> {
-						activePowerL2 = power;
-						voltageL2 = voltage;
-						currentL2 = activePowerL2 / voltageL2;
-						this.channel(IoShellyEm.ChannelId.EMETER2_EXCEPTION).setNextValue(!isValid);
-					}
+							this.channel(IoShellyEm.ChannelId.EMETER1_EXCEPTION)
+									.setNextValue(!isValid);
+						}
+						case 2 -> {
+							activePowerL2 = power;
+							voltageL2 = voltage;
+							currentL2 = activePowerL2 / voltageL2;
+							this.channel(IoShellyEm.ChannelId.EMETER2_EXCEPTION)
+									.setNextValue(!isValid);
+						}
 					}
 				}
-				
-				activePower = activePowerL1 + activePowerL2; 
+
+				activePower = activePowerL1 + activePowerL2;
 
 			} catch (OpenemsNamedException e) {
 				this.logDebug(this.log, e.getMessage());
@@ -198,7 +211,8 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 
 		// Actually set Channels
 		this._setRelay(relay0);
-		this.channel(IoShellyEm.ChannelId.RELAY_OVERPOWER_EXCEPTION).setNextValue(overpower);
+		this.channel(IoShellyEm.ChannelId.RELAY_OVERPOWER_EXCEPTION)
+				.setNextValue(overpower);
 		this._setActivePower(activePower);
 		this.channel(IoShellyEm.ChannelId.HAS_UPDATE).setNextValue(hasUpdate);
 
