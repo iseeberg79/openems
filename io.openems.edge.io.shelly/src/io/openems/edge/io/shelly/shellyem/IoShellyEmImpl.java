@@ -150,9 +150,6 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 		} else {
 			try {
 				var response = getAsJsonObject(result.data());
-				System.out.println("--------------------------");
-				System.out.println(response); 
-				System.out.println("--------------------------");
 
 				var relays = getAsJsonArray(response, "relays");
 				if (!relays.isEmpty()) {
@@ -161,9 +158,7 @@ public class IoShellyEmImpl extends AbstractOpenemsComponent
 					overpower = getAsBoolean(relay, "overpower");
 				}
 
-				var update = getAsJsonObject(response, "update");
-				
-				System.out.println(update); 
+				var update = getAsJsonObject(response, "update"); 
 				
 				hasUpdate = getAsBoolean(update, "has_update");
 
