@@ -155,8 +155,8 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								m(KostalGridMeter.ChannelId.ACTIVE_PRODUCTION_REACTIVE_POWER_L1,
 										new UnsignedDoublewordElement(46),
 										SCALE_FACTOR_MINUS_1)),
-								//new DummyRegisterElement(48, 59), //
-								new FC3ReadRegistersTask(60, Priority.HIGH, //
+						// new DummyRegisterElement(48, 59), //
+						new FC3ReadRegistersTask(60, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.CURRENT_L1,
 										new UnsignedDoublewordElement(60)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
@@ -197,7 +197,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 										new UnsignedDoublewordElement(140)), //
 								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
 										new UnsignedDoublewordElement(142)) //
-								));
+						));
 				// Calculates required Channels from other existing Channels.
 				this.addCalculateChannelListeners();
 
@@ -242,8 +242,8 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 										new UnsignedDoublewordElement(46)
 												.wordOrder(LSWMSW),
 										SCALE_FACTOR_MINUS_1)),
-								//new DummyRegisterElement(48, 59), //
-								new FC3ReadRegistersTask(60, Priority.HIGH, //
+						// new DummyRegisterElement(48, 59), //
+						new FC3ReadRegistersTask(60, Priority.HIGH, //
 								m(ElectricityMeter.ChannelId.CURRENT_L1,
 										new UnsignedDoublewordElement(60)
 												.wordOrder(LSWMSW)), //
@@ -298,7 +298,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
 										new UnsignedDoublewordElement(142)
 												.wordOrder(LSWMSW)) //
-								));
+						));
 				// Calculates required Channels from other existing Channels.
 				this.addCalculateChannelListeners();
 
