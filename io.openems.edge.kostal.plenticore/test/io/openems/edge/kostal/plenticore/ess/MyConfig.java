@@ -16,16 +16,17 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String modbusId;
 		private int modbusUnitId;
 		private int capacity;
-		private String ctrl_id;
-		private String ctrl_target;
+		private String ctrlId;
+		private String ctrlTarget;
 
 		private MeterType type;
-		public int minsoc;
-		public int watchdog;
+		private int minsoc;
+		private int watchdog;
 		private int tolerance;
-		public boolean debugMode;
+		private boolean debugMode;
 
 		private Builder() {
+			// empty
 		}
 
 		public Builder setId(String id) {
@@ -34,7 +35,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		}
 
 		public Builder setReadOnlyMode(boolean readOnly) {
-			this.readOnlyMode = readOnlyMode;
+			this.readOnlyMode = readOnly;
 			return this;
 		}
 
@@ -68,13 +69,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
-		public Builder setCtrlId(String ctrl_id) {
-			this.ctrl_id = ctrl_id;
+		public Builder setCtrlId(String ctrlId) {
+			this.ctrlId = ctrlId;
 			return this;
 		}
 
-		public Builder setCtrlTarget(String ctrl_target) {
-			this.ctrl_target = ctrl_target;
+		public Builder setCtrlTarget(String ctrlTarget) {
+			this.ctrlTarget = ctrlTarget;
 			return this;
 		}
 

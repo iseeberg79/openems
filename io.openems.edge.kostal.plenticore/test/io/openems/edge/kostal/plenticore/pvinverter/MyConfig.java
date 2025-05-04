@@ -17,7 +17,9 @@ public class MyConfig extends AbstractComponentConfig implements Config {
     private int modbusUnitId;
     private MeterType type;
 
-    private Builder() {}
+    private Builder() {
+    	// empty
+    }
 
     public Builder setId(String id) {
       this.id = id;
