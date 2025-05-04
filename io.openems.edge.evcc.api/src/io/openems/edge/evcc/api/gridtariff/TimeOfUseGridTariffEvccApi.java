@@ -35,12 +35,12 @@ public class TimeOfUseGridTariffEvccApi {
 	/**
 	 * Fetches time-of-use electricity prices from the API.
 	 *
-	 * This method sends an HTTP GET request to the configured API URL and retrieves 
+	 * <p>This method sends an HTTP GET request to the configured API URL and retrieves 
 	 * the response as a JSON string. If the request is successful (HTTP status code 
 	 * 2xx), the response is parsed into a {@link TimeOfUsePrices} object. Otherwise, 
 	 * it logs a warning and returns an empty prices object.
 	 *
-	 * The method applies a timeout of 5 seconds to both the connection and read operations.
+	 * <p>The method applies a timeout of 5 seconds to both the connection and read operations.
 	 *
 	 * @return A {@link TimeOfUsePrices} object containing the parsed price data or an 
 	 *         empty prices object if the request fails.

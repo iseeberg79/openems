@@ -20,13 +20,14 @@ public class PredictorSolarTariffEvccApi {
 	public PredictorSolarTariffEvccApi(String apiUrl) {
 		this.apiUrl = apiUrl;
 	}
+	
 	/**
 	 * Fetches the solar forecast data from the API.
 	 *
-	 * This method sends a GET request to the configured API URL and retrieves the response 
+	 * <p>This method sends a GET request to the configured API URL and retrieves the response 
 	 * as a JSON object. If the response contains a valid "result" field, the method extracts 
-	 * and returns the "rates" array from the JSON structure. If the response is missing or 
-	 * invalid, an exception is thrown to indicate an error in fetching the forecast data.
+	 * and returns the "rates" array from the JSON structure. Otherwise, an exception is thrown 
+	 * to indicate an error in fetching the forecast data.
 	 *
 	 * @return A {@link JsonArray} containing the forecasted solar tariff rates.
 	 * @throws OpenemsNamedException If the API response is invalid or empty.
