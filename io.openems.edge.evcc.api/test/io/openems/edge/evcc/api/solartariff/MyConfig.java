@@ -1,6 +1,7 @@
-package io.openems.edge.evcc_api.gridtariff;
+package io.openems.edge.evcc.api.solartariff;
 
 import io.openems.common.test.AbstractComponentConfig;
+import io.openems.edge.evcc.api.solartariff.Config;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 
 @SuppressWarnings("all")
@@ -9,7 +10,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	protected static class Builder {
 		private String id;
 		private String[] channelAddresses;
-		private String apiUrl;
+		private String url;
 		private LogVerbosity logVerbosity;
 
 		private Builder() {
@@ -20,8 +21,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
-		public Builder setApiUrl(String apiUrl) {
-			this.apiUrl = apiUrl;
+		public Builder setChannelAddresses(String... channelAddresses) {
+			this.channelAddresses = channelAddresses;
+			return this;
+		}
+
+		public Builder setUrl(String url) {
+			this.url = url;
 			return this;
 		}
 
@@ -52,13 +58,17 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
+	public String url() {
+		return this.builder.url;
+	}
+
+	@Override
 	public LogVerbosity logVerbosity() {
 		return this.builder.logVerbosity;
 	}
 
 	@Override
-	public String apiUrl() {
-		return this.builder.apiUrl;
+	public String[] channelAddresses() {
+		return this.builder.channelAddresses;
 	}
-
 }

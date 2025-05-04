@@ -1,4 +1,4 @@
-package io.openems.edge.evcc_api.solartariff;
+package io.openems.edge.evcc.api.solartariff;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -50,15 +50,13 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 	private ZonedDateTime prevHour = LocalDateTime.now()
 			.atZone(ZoneId.of("UTC"));
 	private final TreeMap<ZonedDateTime, Integer> hourlySolarData = new TreeMap<>();
-	Prediction cachedPrediction;
 
 	@Reference
 	private ComponentManager componentManager;
 
 	private Config config;
 
-	private PredictorSolarTariffEvccAPI solarForecastAPI; // Service to fetch
-															// weather data
+	private PredictorSolarTariffEvccApi solarForecastApi; // fetch weather data
 
 	public PredictorSolarTariffEvccImpl() throws OpenemsNamedException {
 		super(OpenemsComponent.ChannelId.values(),
@@ -75,8 +73,8 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				this.config.logVerbosity());
 
 		// Fetch latest weather forecast data every 15 minutes
-		this.solarForecastAPI = new PredictorSolarTariffEvccAPI(config.url()); // initialize
-																				// here
+		this.solarForecastApi = new PredictorSolarTariffEvccApi(
+				this.config.url()); // initialize
 	}
 
 	@Override
@@ -92,7 +90,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	protected Prediction createNewPrediction(ChannelAddress channelAddress) {
 		try {
-			log.info("SolarForecast.createNewPrediction is called.");
+			this.log.info("SolarForecast.createNewPrediction is called.");
 			LocalDateTime localCurrentHour = LocalDateTime
 					.now(this.componentManager.getClock()).withNano(0)
 					.withMinute(0).withSecond(0);
@@ -101,22 +99,23 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 			JsonArray js = null;
 
-			if (!executed) {
-				js = this.solarForecastAPI.getSolarForecast();
+			if (!this.executed) {
+				js = this.solarForecastApi.getSolarForecast();
 				this.prevHour = currentHour;
 				this.executed = true;
 			} else if (this.prevHour != null
 					&& currentHour.isAfter(this.prevHour)) {
-				js = this.solarForecastAPI.getSolarForecast();
+				this.duration = -1;
+				js = this.solarForecastApi.getSolarForecast();
 				this.prevHour = currentHour;
 			} else {
 				// TODO something to do here?
 			}
 
-			log.debug("SolarForecast.createNewPrediction calculation");
+			this.log.debug("SolarForecast.createNewPrediction calculation");
 
 			if (js != null) {
-				hourlySolarData.clear();
+				this.hourlySolarData.clear();
 
 				for (int i = 0; i < js.size(); i++) {
 					JsonObject data = js.get(i).getAsJsonObject();
@@ -127,14 +126,14 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 							.parse(startsAt.getAsString());
 
 					// execute once to determine intervals
-					if (duration < 0) {
+					if (this.duration < 0) {
 						JsonElement endsAt = data.get("end");
 
 						// Parse den String in ZonedDateTime
 						ZonedDateTime zonedDateTimeEnd = ZonedDateTime
 								.parse(endsAt.getAsString());
 
-						duration = Duration
+						this.duration = Duration
 								.between(zonedDateTime, zonedDateTimeEnd)
 								.toMinutes();
 					}
@@ -151,37 +150,39 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 									? jsonObject.get("price").getAsInt()
 									: null);
 
-					log.debug("SolarForecast prediction: " + utcDateTime + " "
-							+ power + " Wh");
+					this.log.debug("SolarForecast prediction: " + utcDateTime
+							+ " " + power + " Wh");
 
-					hourlySolarData.put(utcDateTime, power);
+					this.hourlySolarData.put(utcDateTime, power);
 
 				}
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED)
 						.setNextValue(true);
 
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
-						.setNextValue(hourlySolarData.firstEntry().getValue());
+						.setNextValue(
+								this.hourlySolarData.firstEntry().getValue());
 
 			}
 
-			if (hourlySolarData != null && !hourlySolarData.isEmpty()) {
-				// System.out.println("SolarForecastcreateNewPrediction
-				// transforming");
-				log.debug("SolarForecast.createNewPrediction transforming");
+			if (this.hourlySolarData != null
+					&& !this.hourlySolarData.isEmpty()) {
+				this.log.debug(
+						"SolarForecast.createNewPrediction transforming");
 
 				// Create an array to store the forecast values for the next 192
 				// intervals (48 hours in 15-minute steps)
 				var values = new Integer[192];
 
 				int i = 0;
-				for (Entry<ZonedDateTime, Integer> entry : hourlySolarData
+				for (Entry<ZonedDateTime, Integer> entry : this.hourlySolarData
 						.entrySet()) {
 					// System.out.println("loop processing...");
-					log.debug("loop processing[" + i + "]: " + entry.getKey());
+					this.log.debug(
+							"loop processing[" + i + "]: " + entry.getKey());
 					if (!entry.getKey().isBefore(currentHour)
 							&& i < values.length) {
-						switch ((int) duration) {
+						switch ((int) this.duration) {
 							case 60 :
 								// convert hourly values in 15min steps
 								values[i++] = entry.getValue();
@@ -196,31 +197,29 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 							default :
 								throw new IllegalArgumentException(
 										"Unexpected duration for power: "
-												+ duration + " minutes");
+												+ this.duration + " minutes");
 						}
 					}
 				}
-				log.debug("loop completed: " + i + " iterations");
+				this.log.debug("loop completed: " + i + " iterations");
 
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
 						.setNextValue(values[0]);
 
-				log.debug("current PV energy prediction: " + values[0] + " at: "
-						+ currentHour);
+				this.log.debug("current PV energy prediction: " + values[0]
+						+ " at: " + currentHour);
 
 				Prediction prediction = Prediction.from(currentHour, values);
-
-				cachedPrediction = prediction;
 
 				// Return the prediction starting from the calculated time
 				return prediction;
 			} else {
-				log.warn("No prediction data");
+				this.log.warn("No prediction data");
 				return Prediction.EMPTY_PREDICTION;
 			}
 
 		} catch (Exception e) {
-			log.error("Error creating prediction: ", e.toString());
+			this.log.error("Error creating prediction: ", e.toString());
 			return Prediction.EMPTY_PREDICTION;
 		}
 	}

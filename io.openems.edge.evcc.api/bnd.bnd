@@ -11,8 +11,7 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.edge.predictor.api,\
 	io.openems.edge.timedata.api,\
 	io.openems.edge.bridge.http,\
-	io.openems.edge.timeofusetariff.api,\
-	io.openems.wrapper.okhttp
+	io.openems.edge.timeofusetariff.api
 
 -testpath: \
 	${testpath}
