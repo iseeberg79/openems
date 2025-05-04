@@ -1,6 +1,10 @@
 package io.openems.edge.evcc_api.gridtariff;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -14,34 +18,40 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import io.openems.edge.timeofusetariff.api.TimeOfUsePrices;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class TimeOfUseGridTariffEvccApi {
 
 	private static final Logger log = LoggerFactory
 			.getLogger(TimeOfUseGridTariffEvccApi.class);
-	private final OkHttpClient client = new OkHttpClient();
+	private final HttpClient client;
 	private final String apiUrl;
 
 	public TimeOfUseGridTariffEvccApi(String apiUrl) {
+		client = HttpClient.newBuilder()
+				.connectTimeout(java.time.Duration.ofSeconds(5)).build();
 		this.apiUrl = apiUrl;
 	}
 
 	public TimeOfUsePrices fetchPrices() {
-		try (Response response = client
-				.newCall(new Request.Builder().url(apiUrl).build()).execute()) {
-			if (response.isSuccessful() && response.body() != null) {
-				String json = response.body().string();
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(apiUrl))
+				.GET().timeout(java.time.Duration.ofSeconds(5)).build();
+
+		try {
+			HttpResponse<String> response = client.send(request,
+					HttpResponse.BodyHandlers.ofString());
+
+			if (response.statusCode() >= 200 && response.statusCode() < 300
+					&& response.body() != null) {
+				String json = response.body();
 				return parsePrices(json);
 			} else {
 				log.warn("Failed to fetch prices. HTTP status code: {}",
-						response.code());
+						response.statusCode());
 			}
-		} catch (IOException e) {
+		} catch (IOException | InterruptedException e) {
 			log.error("Error while fetching prices", e);
 		}
+
 		return TimeOfUsePrices.EMPTY_PRICES;
 	}
 
@@ -64,9 +74,11 @@ public class TimeOfUseGridTariffEvccApi {
 					// Extract necessary fields
 					String startString = rateObject.get("start").getAsString();
 					String endString = rateObject.get("end").getAsString();
-					double value = rateObject.has("price") 
-						    ? rateObject.get("price").getAsDouble() * 1000 
-						    : rateObject.get("value").getAsDouble() * 1000; // Convert to Currency/MWh
+					double value = rateObject.has("price")
+							? rateObject.get("price").getAsDouble() * 1000
+							: rateObject.get("value").getAsDouble() * 1000; // Convert
+																			// to
+																			// Currency/MWh
 
 					ZonedDateTime startsAt = ZonedDateTime
 							.parse(startString, DateTimeFormatter.ISO_DATE_TIME)

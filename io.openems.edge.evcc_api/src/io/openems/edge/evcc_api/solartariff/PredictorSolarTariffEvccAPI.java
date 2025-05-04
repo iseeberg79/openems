@@ -1,10 +1,10 @@
 package io.openems.edge.evcc_api.solartariff;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -32,24 +32,19 @@ public class PredictorSolarTariffEvccAPI {
 		}
 	}
 
-	private JsonObject sendGetRequest(String URL) throws OpenemsNamedException {
+	private JsonObject sendGetRequest(String url) throws OpenemsNamedException {
+		HttpClient client = HttpClient.newBuilder()
+				.connectTimeout(java.time.Duration.ofSeconds(5)).build();
+
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
+				.GET().timeout(java.time.Duration.ofSeconds(5)).build();
+
 		try {
-			URL url = new URL(URL);
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			con.setRequestMethod("GET");
-			con.setConnectTimeout(5000);
-			con.setReadTimeout(5000);
-			int status = con.getResponseCode();
-			String body;
-			try (BufferedReader in = new BufferedReader(
-					new InputStreamReader(con.getInputStream()))) {
-				StringBuilder content = new StringBuilder();
-				String line;
-				while ((line = in.readLine()) != null) {
-					content.append(line);
-				}
-				body = content.toString();
-			}
+			HttpResponse<String> response = client.send(request,
+					HttpResponse.BodyHandlers.ofString());
+			int status = response.statusCode();
+			String body = response.body();
+
 			if (status < 300) {
 				return JsonUtils.parseToJsonObject(body);
 			} else {
@@ -57,7 +52,7 @@ public class PredictorSolarTariffEvccAPI {
 						"Error while reading from API. Response code: " + status
 								+ ". " + body);
 			}
-		} catch (IOException e) {
+		} catch (IOException | InterruptedException e) {
 			throw new OpenemsException(
 					"Unable to connect to the Solar Forecast API.");
 		}
