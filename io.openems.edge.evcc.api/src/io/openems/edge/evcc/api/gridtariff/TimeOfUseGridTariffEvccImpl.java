@@ -36,7 +36,7 @@ public class TimeOfUseGridTariffEvccImpl extends AbstractOpenemsComponent
     //private final Logger log = LoggerFactory.getLogger(TimeOfUseGridTariffEvccImpl.class);
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final AtomicReference<TimeOfUsePrices> prices = new AtomicReference<>(TimeOfUsePrices.EMPTY_PRICES);
-    private String apiURL = "http://localhost:7070/api/tariff/grid";
+    private String apiUrl = "http://localhost:7070/api/tariff/grid";
 
     @Reference
     private ComponentManager componentManager;
@@ -58,8 +58,8 @@ public class TimeOfUseGridTariffEvccImpl extends AbstractOpenemsComponent
             return;
         }
 
-        this.apiURL = config.apiUrl();
-        this.apiClient = new TimeOfUseGridTariffEvccApi(apiURL);
+        this.apiUrl = config.apiUrl();
+        this.apiClient = new TimeOfUseGridTariffEvccApi(this.apiUrl);
         this.executor.schedule(this.task, 0, TimeUnit.SECONDS);
     }
 
@@ -70,7 +70,7 @@ public class TimeOfUseGridTariffEvccImpl extends AbstractOpenemsComponent
     }
 
     protected final Runnable task = () -> {
-        this.prices.set(apiClient.fetchPrices());
+        this.prices.set(this.apiClient.fetchPrices());
     };
 
     public TimeOfUsePrices getPrices() {

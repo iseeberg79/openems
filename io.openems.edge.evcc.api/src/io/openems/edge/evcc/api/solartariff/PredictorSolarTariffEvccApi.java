@@ -22,7 +22,7 @@ public class PredictorSolarTariffEvccApi {
 	}
 
 	public JsonArray getSolarForecast() throws OpenemsNamedException {
-		JsonObject jsonResponse = sendGetRequest(apiUrl);
+		JsonObject jsonResponse = sendGetRequest(this.apiUrl);
 		if (jsonResponse != null && jsonResponse.has("result")) {
 			return jsonResponse.getAsJsonObject("result")
 					.getAsJsonArray("rates");

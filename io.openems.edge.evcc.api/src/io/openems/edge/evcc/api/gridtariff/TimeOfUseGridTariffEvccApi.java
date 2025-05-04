@@ -33,17 +33,17 @@ public class TimeOfUseGridTariffEvccApi {
 	}
 
 	public TimeOfUsePrices fetchPrices() {
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(apiUrl))
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(this.apiUrl))
 				.GET().timeout(java.time.Duration.ofSeconds(5)).build();
 
 		try {
-			HttpResponse<String> response = client.send(request,
+			HttpResponse<String> response = this.client.send(request,
 					HttpResponse.BodyHandlers.ofString());
 
 			if (response.statusCode() >= 200 && response.statusCode() < 300
 					&& response.body() != null) {
 				String json = response.body();
-				return parsePrices(json);
+				return this.parsePrices(json);
 			} else {
 				log.warn("Failed to fetch prices. HTTP status code: {}",
 						response.statusCode());
@@ -76,9 +76,7 @@ public class TimeOfUseGridTariffEvccApi {
 					String endString = rateObject.get("end").getAsString();
 					double value = rateObject.has("price")
 							? rateObject.get("price").getAsDouble() * 1000
-							: rateObject.get("value").getAsDouble() * 1000; // Convert
-																			// to
-																			// Currency/MWh
+							: rateObject.get("value").getAsDouble() * 1000; // Convert to Currency/MWh
 
 					ZonedDateTime startsAt = ZonedDateTime
 							.parse(startString, DateTimeFormatter.ISO_DATE_TIME)
