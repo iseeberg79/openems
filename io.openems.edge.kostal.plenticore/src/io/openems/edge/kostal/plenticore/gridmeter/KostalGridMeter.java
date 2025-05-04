@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.gridmeter;
+package io.openems.edge.kostal.plenticore.gridmeter;
 
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;

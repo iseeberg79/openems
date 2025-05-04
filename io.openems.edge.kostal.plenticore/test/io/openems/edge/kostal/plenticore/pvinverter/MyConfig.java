@@ -1,9 +1,10 @@
-package io.openems.edge.kostal.gridmeter;
+package io.openems.edge.kostal.plenticore.pvinverter;
 
 import io.openems.common.test.AbstractComponentConfig;
 import io.openems.common.types.MeterType;
 import io.openems.common.utils.ConfigUtils;
-import io.openems.edge.kostal.gridmeter.Config;
+import io.openems.edge.kostal.plenticore.pvinverter.Config;
+import io.openems.edge.pvinverter.sunspec.Phase;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {
@@ -11,9 +12,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
   protected static class Builder {
 
     private String id;
+    private boolean readOnly;
     private String modbusId;
-    private boolean wordwrap;
-    private boolean inverter; 
     private int modbusUnitId;
     private MeterType type;
 
@@ -21,6 +21,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
     public Builder setId(String id) {
       this.id = id;
+      return this;
+    }
+
+    public Builder setReadOnly(boolean readOnly) {
+      this.readOnly = readOnly;
       return this;
     }
 
@@ -33,17 +38,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
       this.modbusUnitId = modbusUnitId;
       return this;
     }
-    
-    public Builder setWordwrap(boolean wordwrap) {
-        this.wordwrap = wordwrap;
-        return this;
-      }    
 
-    public Builder setViaInverter(boolean inverter) {
-        this.inverter = inverter;
-        return this;
-      } 
-    
     public MyConfig build() {
       return new MyConfig(this);
     }
@@ -66,6 +61,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
   }
 
   @Override
+  public boolean readOnly() {
+    return this.builder.readOnly;
+  }
+
+  @Override
   public String modbus_id() {
     return this.builder.modbusId;
   }
@@ -81,15 +81,5 @@ public class MyConfig extends AbstractComponentConfig implements Config {
   @Override
   public int modbusUnitId() {
     return this.builder.modbusUnitId;
-  }
-  
-  @Override
-  public boolean wordwrap() {
-    return this.builder.wordwrap;
-  }
-  
-  @Override
-  public boolean viaInverter() {
-    return this.builder.inverter;
   }
 }

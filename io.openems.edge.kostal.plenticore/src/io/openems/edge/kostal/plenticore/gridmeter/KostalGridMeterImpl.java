@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.gridmeter;
+package io.openems.edge.kostal.plenticore.gridmeter;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;

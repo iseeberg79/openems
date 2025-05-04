@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.ess;
+package io.openems.edge.kostal.plenticore.ess;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
@@ -13,12 +13,12 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.kostal.enums.BatteryManagementMode;
-import io.openems.edge.kostal.enums.BatteryType;
-import io.openems.edge.kostal.enums.EnergyManagerMode;
-import io.openems.edge.kostal.enums.FuseState;
-import io.openems.edge.kostal.enums.InverterState;
-import io.openems.edge.kostal.enums.SensorType;
+import io.openems.edge.kostal.plenticore.enums.BatteryManagementMode;
+import io.openems.edge.kostal.plenticore.enums.BatteryType;
+import io.openems.edge.kostal.plenticore.enums.EnergyManagerMode;
+import io.openems.edge.kostal.plenticore.enums.FuseState;
+import io.openems.edge.kostal.plenticore.enums.InverterState;
+import io.openems.edge.kostal.plenticore.enums.SensorType;
 
 public interface KostalManagedESS
 		extends

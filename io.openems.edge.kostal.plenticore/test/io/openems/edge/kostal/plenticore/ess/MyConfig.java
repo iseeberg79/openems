@@ -1,9 +1,10 @@
-package io.openems.edge.kostal.ess;
+package io.openems.edge.kostal.plenticore.ess;
 
 import io.openems.common.test.AbstractComponentConfig;
 import io.openems.common.types.MeterType;
 import io.openems.common.utils.ConfigUtils;
-import io.openems.edge.kostal.enums.ControlMode;
+import io.openems.edge.kostal.plenticore.enums.ControlMode;
+import io.openems.edge.kostal.plenticore.ess.Config;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {

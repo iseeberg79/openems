@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.pvinverter;
+package io.openems.edge.kostal.plenticore.pvinverter;
 
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;

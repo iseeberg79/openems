@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.enums;
+package io.openems.edge.kostal.plenticore.enums;
 
 import io.openems.common.types.OptionsEnum;
 

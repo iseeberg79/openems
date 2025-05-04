@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.ess;
+package io.openems.edge.kostal.plenticore.ess;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
@@ -43,7 +43,7 @@ import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.kostal.enums.ControlMode;
+import io.openems.edge.kostal.plenticore.enums.ControlMode;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -96,7 +96,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	private ControlMode controlMode;
 	private int minsoc = 5;
 	private int tolerance = 20;
-	private int watchdog = 30;	
+	private int watchdog = 30;
 
 	// is DC power for consistency
 	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(
@@ -111,8 +111,7 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 	public KostalManagedESSImpl() {
 		super(OpenemsComponent.ChannelId.values(),
 				ModbusComponent.ChannelId.values(),
-				SymmetricEss.ChannelId.values(), 
-				HybridEss.ChannelId.values(),
+				SymmetricEss.ChannelId.values(), HybridEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
 				KostalManagedESS.ChannelId.values());
 	}
@@ -308,7 +307,6 @@ public class KostalManagedESSImpl extends AbstractOpenemsModbusComponent
 						new FloatDoublewordElement(1034).wordOrder(LSWMSW))));
 
 	}
-	
 
 	/**
 	 * Provides a debug log message summarizing the current state.

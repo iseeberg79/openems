@@ -1,4 +1,4 @@
-package io.openems.edge.kostal.pvinverter;
+package io.openems.edge.kostal.plenticore.pvinverter;
 
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
