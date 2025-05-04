@@ -24,6 +24,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private int watchdog;
 		private int tolerance;
 		private boolean debugMode;
+		private ControlMode controlMode;
 
 		private Builder() {
 			// empty
@@ -84,6 +85,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
+		public Builder setControlMode(ControlMode controlMode) {
+			this.controlMode = controlMode;
+			return this;
+		}
+		
 		public MyConfig build() {
 			return new MyConfig(this);
 		}
@@ -126,12 +132,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public ControlMode controlMode() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public int minsoc() {
 		return this.builder.minsoc;
 	}
@@ -146,6 +146,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.debugMode;
 	}
 
+	@Override
+	public ControlMode controlMode() {
+		return this.builder.controlMode;
+	}
+	
 	@Override
 	public int tolerance() {
 		return this.builder.tolerance;
