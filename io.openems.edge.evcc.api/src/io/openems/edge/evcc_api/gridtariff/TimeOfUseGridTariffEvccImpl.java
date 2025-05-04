@@ -15,8 +15,6 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.metatype.annotations.Designate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.openems.common.utils.ThreadPoolUtils;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
@@ -35,7 +33,7 @@ import io.openems.edge.timeofusetariff.api.TimeOfUseTariff;
 public class TimeOfUseGridTariffEvccImpl extends AbstractOpenemsComponent
         implements TimeOfUseTariff, OpenemsComponent, TimeOfUseGridTariffEvcc {
 
-    private final Logger log = LoggerFactory.getLogger(TimeOfUseGridTariffEvccImpl.class);
+    //private final Logger log = LoggerFactory.getLogger(TimeOfUseGridTariffEvccImpl.class);
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final AtomicReference<TimeOfUsePrices> prices = new AtomicReference<>(TimeOfUsePrices.EMPTY_PRICES);
     private String apiURL = "http://localhost:7070/api/tariff/grid";
