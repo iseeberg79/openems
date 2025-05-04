@@ -4,7 +4,6 @@ import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Doc;
-import io.openems.edge.common.channel.DoubleReadChannel;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.meter.api.ElectricityMeter;
