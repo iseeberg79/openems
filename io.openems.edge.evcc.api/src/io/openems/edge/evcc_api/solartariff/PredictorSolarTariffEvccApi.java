@@ -13,11 +13,11 @@ import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.utils.JsonUtils;
 
-public class PredictorSolarTariffEvccAPI {
+public class PredictorSolarTariffEvccApi {
 
 	private final String apiUrl;
 
-	public PredictorSolarTariffEvccAPI(String apiUrl) {
+	public PredictorSolarTariffEvccApi(String apiUrl) {
 		this.apiUrl = apiUrl;
 	}
 

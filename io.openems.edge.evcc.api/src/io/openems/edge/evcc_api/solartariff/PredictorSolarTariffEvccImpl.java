@@ -57,7 +57,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	private Config config;
 
-	private PredictorSolarTariffEvccAPI solarForecastAPI; // Service to fetch
+	private PredictorSolarTariffEvccApi solarForecastAPI; // Service to fetch
 															// weather data
 
 	public PredictorSolarTariffEvccImpl() throws OpenemsNamedException {
@@ -75,7 +75,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				this.config.logVerbosity());
 
 		// Fetch latest weather forecast data every 15 minutes
-		this.solarForecastAPI = new PredictorSolarTariffEvccAPI(config.url()); // initialize
+		this.solarForecastAPI = new PredictorSolarTariffEvccApi(config.url()); // initialize
 																				// here
 	}
 
