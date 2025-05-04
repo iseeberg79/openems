@@ -9,11 +9,13 @@ public class PredictorSolarTariffEvccImplTest {
 
 	@Test
 	public void test() throws Exception {
+		String[] channels = { "_sum/ProductionActivePower" };
 		new ComponentTest(new PredictorSolarTariffEvccImpl()) //
 				.activate(MyConfig.create() //
 						.setId("predictor0") //
-						.setUrl("http://evcc:7070/api/tariff/solar")
-						.setLogVerbosity(LogVerbosity.REQUESTED_PREDICTIONS)
+						.setUrl("http://evcc:7070/api/tariff/solar") //
+						.setLogVerbosity(LogVerbosity.REQUESTED_PREDICTIONS) //
+						.setChannelAddresses(channels) //
 						.build()) //
 		;
 	}
