@@ -1,4 +1,4 @@
-package io.openems.edge.evcc_api.gridtariff;
+package io.openems.edge.evcc.api.gridtariff;
 
 import java.io.IOException;
 import java.net.URI;

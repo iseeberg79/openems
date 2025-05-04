@@ -1,4 +1,4 @@
-package io.openems.edge.evcc_api.solartariff;
+package io.openems.edge.evcc.api.solartariff;
 
 import java.io.IOException;
 import java.net.URI;

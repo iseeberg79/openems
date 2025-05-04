@@ -1,7 +1,7 @@
-package io.openems.edge.evcc_api.solartariff;
+package io.openems.edge.evcc.api.solartariff;
 
 import io.openems.common.test.AbstractComponentConfig;
-import io.openems.edge.evcc_api.solartariff.Config;
+import io.openems.edge.evcc.api.solartariff.Config;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 
 @SuppressWarnings("all")

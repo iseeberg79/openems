@@ -1,4 +1,4 @@
-package io.openems.edge.evcc_api.gridtariff;
+package io.openems.edge.evcc.api.gridtariff;
 
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
