@@ -56,8 +56,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	private Config config;
 
-	private PredictorSolarTariffEvccApi solarForecastAPI; // Service to fetch
-															// weather data
+	private PredictorSolarTariffEvccApi solarForecastAPI; // fetch weather data
 
 	public PredictorSolarTariffEvccImpl() throws OpenemsNamedException {
 		super(OpenemsComponent.ChannelId.values(),
