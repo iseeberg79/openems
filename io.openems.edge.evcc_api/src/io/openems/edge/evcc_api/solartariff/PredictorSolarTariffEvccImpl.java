@@ -1,5 +1,6 @@
 package io.openems.edge.evcc_api.solartariff;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -45,6 +46,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 			.getLogger(PredictorSolarTariffEvccImpl.class);
 
 	private boolean executed = false;
+	private long duration = -1;
 	private ZonedDateTime prevHour = LocalDateTime.now()
 			.atZone(ZoneId.of("UTC"));
 	private final TreeMap<ZonedDateTime, Integer> hourlySolarData = new TreeMap<>();
@@ -103,25 +105,39 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				js = this.solarForecastAPI.getSolarForecast();
 				this.prevHour = currentHour;
 				this.executed = true;
-			} else if (this.prevHour != null && currentHour.isAfter(this.prevHour)) {
+			} else if (this.prevHour != null
+					&& currentHour.isAfter(this.prevHour)) {
 				js = this.solarForecastAPI.getSolarForecast();
 				this.prevHour = currentHour;
 			} else {
 				// TODO something to do here?
-
 			}
 
 			log.debug("SolarForecast.createNewPrediction calculation");
 
 			if (js != null) {
 				hourlySolarData.clear();
+
 				for (int i = 0; i < js.size(); i++) {
-					JsonElement timeElement = js.get(i).getAsJsonObject()
-							.get("start");
+					JsonObject data = js.get(i).getAsJsonObject();
+					JsonElement startsAt = data.get("start");
 
 					// Parse den String in ZonedDateTime
 					ZonedDateTime zonedDateTime = ZonedDateTime
-							.parse(timeElement.getAsString());
+							.parse(startsAt.getAsString());
+
+					// execute once to determine intervals
+					if (duration < 0) {
+						JsonElement endsAt = data.get("end");
+
+						// Parse den String in ZonedDateTime
+						ZonedDateTime zonedDateTimeEnd = ZonedDateTime
+								.parse(endsAt.getAsString());
+
+						duration = Duration
+								.between(zonedDateTime, zonedDateTimeEnd)
+								.toMinutes();
+					}
 
 					// Konvertiere nach UTC
 					ZonedDateTime utcDateTime = zonedDateTime
@@ -130,9 +146,11 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 					JsonObject jsonObject = js.get(i).getAsJsonObject();
 
 					Integer power = jsonObject.has("value")
-						    ? jsonObject.get("value").getAsInt()
-						    : (jsonObject.has("price") ? jsonObject.get("price").getAsInt() : null);
-					
+							? jsonObject.get("value").getAsInt()
+							: (jsonObject.has("price")
+									? jsonObject.get("price").getAsInt()
+									: null);
+
 					log.debug("SolarForecast prediction: " + utcDateTime + " "
 							+ power + " Wh");
 
@@ -163,11 +181,23 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 					log.debug("loop processing[" + i + "]: " + entry.getKey());
 					if (!entry.getKey().isBefore(currentHour)
 							&& i < values.length) {
-						// convert hourly values in 15min steps
-						values[i++] = entry.getValue();
-						values[i++] = entry.getValue();
-						values[i++] = entry.getValue();
-						values[i++] = entry.getValue();
+						switch ((int) duration) {
+							case 60 :
+								// convert hourly values in 15min steps
+								values[i++] = entry.getValue();
+								values[i++] = entry.getValue();
+								values[i++] = entry.getValue();
+								values[i++] = entry.getValue();
+								break;
+							case 15 :
+								// no conversion
+								values[i++] = entry.getValue();
+								break;
+							default :
+								throw new IllegalArgumentException(
+										"Unexpected duration for power: "
+												+ duration + " minutes");
+						}
 					}
 				}
 				log.debug("loop completed: " + i + " iterations");
