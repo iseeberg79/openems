@@ -5,6 +5,7 @@ import org.junit.Test;
 import io.openems.edge.bridge.modbus.test.DummyModbusBridge;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyConfigurationAdmin;
+import io.openems.edge.kostal.plenticore.enums.ControlMode;
 
 public class KostalManagedEssImplTest {
 
@@ -21,6 +22,7 @@ public class KostalManagedEssImplTest {
 	          .setCapacity(10000) //
 	          .setWatchdog(20)
 	          .setTolerance(30)
+	          .setControlMode(ControlMode.INTERNAL)
 	          .setModbusUnitId(71) //
 	          .setDebugMode(true)
 	          .build()
