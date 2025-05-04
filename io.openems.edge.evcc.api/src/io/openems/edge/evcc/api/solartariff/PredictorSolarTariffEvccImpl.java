@@ -56,7 +56,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	private Config config;
 
-	private PredictorSolarTariffEvccApi solarForecastAPI; // fetch weather data
+	private PredictorSolarTariffEvccApi solarForecastApi; // fetch weather data
 
 	public PredictorSolarTariffEvccImpl() throws OpenemsNamedException {
 		super(OpenemsComponent.ChannelId.values(),
@@ -73,7 +73,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				this.config.logVerbosity());
 
 		// Fetch latest weather forecast data every 15 minutes
-		this.solarForecastAPI = new PredictorSolarTariffEvccApi(
+		this.solarForecastApi = new PredictorSolarTariffEvccApi(
 				this.config.url()); // initialize
 	}
 
@@ -100,13 +100,13 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 			JsonArray js = null;
 
 			if (!this.executed) {
-				js = this.solarForecastAPI.getSolarForecast();
+				js = this.solarForecastApi.getSolarForecast();
 				this.prevHour = currentHour;
 				this.executed = true;
 			} else if (this.prevHour != null
 					&& currentHour.isAfter(this.prevHour)) {
 				this.duration = -1;
-				js = this.solarForecastAPI.getSolarForecast();
+				js = this.solarForecastApi.getSolarForecast();
 				this.prevHour = currentHour;
 			} else {
 				// TODO something to do here?
@@ -126,7 +126,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 							.parse(startsAt.getAsString());
 
 					// execute once to determine intervals
-					if (duration < 0) {
+					if (this.duration < 0) {
 						JsonElement endsAt = data.get("end");
 
 						// Parse den String in ZonedDateTime
@@ -197,7 +197,7 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 							default :
 								throw new IllegalArgumentException(
 										"Unexpected duration for power: "
-												+ duration + " minutes");
+												+ this.duration + " minutes");
 						}
 					}
 				}
