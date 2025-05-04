@@ -51,15 +51,12 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		})
 
 @EventTopics({ //
-//		EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE, //
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 })
 public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 		implements
 			KostalPvInverter,
 			ManagedSymmetricPvInverter,
-			// ManagedSymmetricBatteryInverter,
-			// EssDcCharger,
 			ElectricityMeter,
 			ModbusComponent,
 			OpenemsComponent,
@@ -139,17 +136,17 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 										.wordOrder(LSWMSW), SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L2,
 								new FloatDoublewordElement(160)
-										.wordOrder(LSWMSW), SCALE_FACTOR_3), // //
+										.wordOrder(LSWMSW), SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
 								new FloatDoublewordElement(162)
 										.wordOrder(LSWMSW)),
 						// new DummyRegisterElement(162, 163), //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L2,
 								new FloatDoublewordElement(164)
-										.wordOrder(LSWMSW), SCALE_FACTOR_3 ), //
+										.wordOrder(LSWMSW), SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L3,
 								new FloatDoublewordElement(166)
-										.wordOrder(LSWMSW), SCALE_FACTOR_3),
+										.wordOrder(LSWMSW), SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
 								new FloatDoublewordElement(168)
 										.wordOrder(LSWMSW))), //

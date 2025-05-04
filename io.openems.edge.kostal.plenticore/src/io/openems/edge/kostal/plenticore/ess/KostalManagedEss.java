@@ -20,7 +20,7 @@ import io.openems.edge.kostal.plenticore.enums.FuseState;
 import io.openems.edge.kostal.plenticore.enums.InverterState;
 import io.openems.edge.kostal.plenticore.enums.SensorType;
 
-public interface KostalManagedESS
+public interface KostalManagedEss
 		extends
 			ManagedSymmetricEss,
 			SymmetricEss,
@@ -188,6 +188,7 @@ public interface KostalManagedESS
 			return this.doc;
 		}
 	}
+	
 	/**
 	 * Sets the desired charge power on the
 	 * {@link ChannelId#CHARGE_POWER_WANTED} channel.

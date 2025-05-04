@@ -105,7 +105,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	private void activate(ComponentContext context, Config config)
 			throws OpenemsException {
 		this.config = config;
-		if (super.activate(context, config.id(), config.alias(),
+		if (super.activate(context, this.config.id(), config.alias(),
 				config.enabled(), config.modbusUnitId(), this.cm, "Modbus",
 				config.modbus_id())) {
 			return;
@@ -121,10 +121,10 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		// read directly or read via Inverter?
-		if (!config.viaInverter()) {
+		if (!this.config.viaInverter()) {
 			// DEFAULT ("big endian")
 			// i.e. word-wrapped encoding: LSWMSW vs. MWSLSW
-			if (!config.wordwrap()) {
+			if (!this.config.wordwrap()) {
 				var modbusProtocol = new ModbusProtocol(this, //
 						new FC3ReadRegistersTask(0, Priority.HIGH, //
 								m(KostalGridMeter.ChannelId.ACTIVE_CONSUMPTION_POWER,
@@ -305,7 +305,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 				return modbusProtocol;
 			}
 		}
-		if (!config.wordwrap()) {
+		if (!this.config.wordwrap()) {
 			var modbusProtocol = new ModbusProtocol(this, //
 					new FC3ReadRegistersTask(220, Priority.HIGH, //
 							m(ElectricityMeter.ChannelId.FREQUENCY,
