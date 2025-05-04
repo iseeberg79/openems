@@ -10,12 +10,12 @@ public class TimeOfUseGridTariffEvccImplTest {
 	@Test
 	public void test() throws Exception {
 		new ComponentTest(new TimeOfUseGridTariffEvccImpl()) //
-		.activate(MyConfig.create() //
-				.setId("timeofusetariff0") //
-				.setApiUrl("http://evcc:7070/api/tariff/grid")
-				.setLogVerbosity(LogVerbosity.REQUESTED_PREDICTIONS)
-				.build()) //
-;				
+				.activate(MyConfig.create() //
+						.setId("timeofusetariff0") //
+						.setApiUrl("http://evcc:7070/api/tariff/grid")
+						.setLogVerbosity(LogVerbosity.REQUESTED_PREDICTIONS)
+						.build()) //
+		;
 	}
 
 }
