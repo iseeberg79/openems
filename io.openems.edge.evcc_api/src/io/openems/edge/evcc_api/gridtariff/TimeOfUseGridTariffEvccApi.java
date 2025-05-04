@@ -1,9 +1,9 @@
 package io.openems.edge.evcc_api.gridtariff;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +24,6 @@ public class TimeOfUseGridTariffEvccApi {
 			.getLogger(TimeOfUseGridTariffEvccApi.class);
 	private final OkHttpClient client = new OkHttpClient();
 	private final String apiUrl;
-	private final AtomicReference<TimeOfUsePrices> prices = new AtomicReference<>(
-			TimeOfUsePrices.EMPTY_PRICES);
 
 	public TimeOfUseGridTariffEvccApi(String apiUrl) {
 		this.apiUrl = apiUrl;
@@ -49,70 +47,62 @@ public class TimeOfUseGridTariffEvccApi {
 
 	private TimeOfUsePrices parsePrices(String jsonData) {
 		try {
-			JsonObject jsonObject = JsonParser.parseString(jsonData)
-					.getAsJsonObject();
-			JsonObject resultObject = jsonObject.getAsJsonObject("result");
+			// Parse JSON root object
+			var jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
+			var resultObject = jsonObject.getAsJsonObject("result");
 			var ratesArray = resultObject.getAsJsonArray("rates");
 
+			// Prepare ImmutableSortedMap for 15-minute intervals
 			var result = ImmutableSortedMap
 					.<ZonedDateTime, Double>naturalOrder();
 
-			if (ratesArray.size() < 2) {
-				log.warn(
-						"Zu wenige Werte in der API-Antwort. Erwartet mindestens zwei.");
-				return TimeOfUsePrices.EMPTY_PRICES;
-			}
-
-			// Ersten beiden Werte auslesen zur Intervallbestimmung
-			JsonObject firstRate = ratesArray.get(0).getAsJsonObject();
-			JsonObject secondRate = ratesArray.get(1).getAsJsonObject();
-
-			ZonedDateTime firstStart = ZonedDateTime.parse(
-					firstRate.get("start").getAsString(),
-					DateTimeFormatter.ISO_DATE_TIME);
-			ZonedDateTime secondStart = ZonedDateTime.parse(
-					secondRate.get("start").getAsString(),
-					DateTimeFormatter.ISO_DATE_TIME);
-
-			long intervalMinutes = java.time.Duration
-					.between(firstStart, secondStart).toMinutes();
-			boolean isHourly = (intervalMinutes == 60);
-			boolean isQuarterHourly = (intervalMinutes == 15);
-
-			if (!isHourly && !isQuarterHourly) {
-				log.warn(
-						"Unerwartetes Zeitintervall zwischen den Werten: {} Minuten. Daten werden nicht übernommen.",
-						intervalMinutes);
-				return TimeOfUsePrices.EMPTY_PRICES;
-			}
-
-			// Werte korrekt übernehmen
 			for (JsonElement rateElement : ratesArray) {
+				// Ensure rateElement is a JsonObject
 				if (rateElement.isJsonObject()) {
 					JsonObject rateObject = rateElement.getAsJsonObject();
-					ZonedDateTime startsAt = ZonedDateTime.parse(
-							rateObject.get("start").getAsString(),
-							DateTimeFormatter.ISO_DATE_TIME);
 
-					// Überprüfung: Existiert `price` oder `value`?
-					double priceOrValue = rateObject.has("price")
-							? rateObject.get("price").getAsDouble() * 1000
-							: rateObject.has("value")
-									? rateObject.get("value").getAsDouble()
-											* 1000
-									: 0; // Fallback, falls keiner vorhanden ist
+					// Extract necessary fields
+					String startString = rateObject.get("start").getAsString();
+					String endString = rateObject.get("end").getAsString();
+					double value = rateObject.has("price") 
+						    ? rateObject.get("price").getAsDouble() * 1000 
+						    : rateObject.get("value").getAsDouble() * 1000; // Convert to Currency/MWh
 
-					if (isHourly) {
-						result.put(startsAt, priceOrValue);
-					} else if (isQuarterHourly) {
-						result.put(startsAt, priceOrValue);
+					ZonedDateTime startsAt = ZonedDateTime
+							.parse(startString, DateTimeFormatter.ISO_DATE_TIME)
+							.withZoneSameInstant(ZonedDateTime.now().getZone());
+					ZonedDateTime endsAt = ZonedDateTime
+							.parse(endString, DateTimeFormatter.ISO_DATE_TIME)
+							.withZoneSameInstant(ZonedDateTime.now().getZone());
+
+					long duration = Duration.between(startsAt, endsAt)
+							.toMinutes();
+
+					switch ((int) duration) {
+						case 60 :
+							for (int i = 0; i < 4; i++) {
+								ZonedDateTime quarterStart = startsAt
+										.plusMinutes(i * 15);
+								result.put(quarterStart, value);
+							}
+							break;
+						case 15 :
+							result.put(startsAt, value);
+							break;
+						default :
+							throw new IllegalArgumentException(
+									"Unexpected duration for rate: " + duration
+											+ " minutes");
 					}
+				} else {
+					log.error("Rate element is not a JsonObject: {}",
+							rateElement);
 				}
 			}
 
 			return TimeOfUsePrices.from(result.build());
 		} catch (Exception e) {
-			log.error("Fehler beim Parsen der EVCC API-Daten", e);
+			log.error("Failed to parse EVCC API data", e);
 			return TimeOfUsePrices.EMPTY_PRICES;
 		}
 	}
