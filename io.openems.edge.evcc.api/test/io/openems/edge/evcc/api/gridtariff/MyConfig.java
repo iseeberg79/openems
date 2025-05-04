@@ -13,6 +13,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private LogVerbosity logVerbosity;
 
 		private Builder() {
+			// empty
 		}
 
 		public Builder setId(String id) {
