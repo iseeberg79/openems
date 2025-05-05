@@ -1,6 +1,7 @@
 package io.openems.edge.kostal.plenticore.gridmeter;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 
 import java.util.function.Consumer;
@@ -122,7 +123,7 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 	protected ModbusProtocol defineModbusProtocol() {
 		// read directly or read via Inverter?
 		if (!this.config.viaInverter()) {
-			// DEFAULT ("big endian")
+			// DEFAULT ("big endian"), direct read (from KSEM)
 			// i.e. word-wrapped encoding: LSWMSW vs. MWSLSW
 			if (!this.config.wordwrap()) {
 				var modbusProtocol = new ModbusProtocol(this, //
@@ -304,104 +305,120 @@ public class KostalGridMeterImpl extends AbstractOpenemsModbusComponent
 
 				return modbusProtocol;
 			}
-		}
-		if (!this.config.wordwrap()) {
-			var modbusProtocol = new ModbusProtocol(this, //
-					new FC3ReadRegistersTask(220, Priority.HIGH, //
-							m(ElectricityMeter.ChannelId.FREQUENCY,
-									new FloatDoublewordElement(220)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L1,
-									new FloatDoublewordElement(222)), //
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
-									new FloatDoublewordElement(224)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1,
-									new FloatDoublewordElement(226)),
-							new DummyRegisterElement(228, 229), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L1,
-									new FloatDoublewordElement(230)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L2,
-									new FloatDoublewordElement(232)),
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
-									new FloatDoublewordElement(234)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2,
-									new FloatDoublewordElement(236)),
-							new DummyRegisterElement(238, 239), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L2,
-									new FloatDoublewordElement(240)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L3,
-									new FloatDoublewordElement(242)),
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
-									new FloatDoublewordElement(244)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3,
-									new FloatDoublewordElement(246)),
-							new DummyRegisterElement(248, 249), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L3,
-									new FloatDoublewordElement(250)), //
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-									new FloatDoublewordElement(252)), //
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER,
-									new FloatDoublewordElement(254)) //
-					));
-			// Calculates required Channels from other existing Channels.
-			this.addCalculateChannelListeners();
-
-			return modbusProtocol;
 		} else {
-			var modbusProtocol = new ModbusProtocol(this, //
-					new FC3ReadRegistersTask(220, Priority.HIGH, //
-							m(ElectricityMeter.ChannelId.FREQUENCY,
-									new FloatDoublewordElement(220)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L1,
-									new FloatDoublewordElement(222)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
-									new FloatDoublewordElement(224)
-											.wordOrder(LSWMSW)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1,
-									new FloatDoublewordElement(226)
-											.wordOrder(LSWMSW)),
-							new DummyRegisterElement(228, 229), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L1,
-									new FloatDoublewordElement(230)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L2,
-									new FloatDoublewordElement(232)
-											.wordOrder(LSWMSW)),
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
-									new FloatDoublewordElement(234)
-											.wordOrder(LSWMSW)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2,
-									new FloatDoublewordElement(236)
-											.wordOrder(LSWMSW)),
-							new DummyRegisterElement(238, 239), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L2,
-									new FloatDoublewordElement(240)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.CURRENT_L3,
-									new FloatDoublewordElement(242)
-											.wordOrder(LSWMSW)),
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
-									new FloatDoublewordElement(244)
-											.wordOrder(LSWMSW)),
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3,
-									new FloatDoublewordElement(246)
-											.wordOrder(LSWMSW)),
-							new DummyRegisterElement(248, 249), //
-							m(ElectricityMeter.ChannelId.VOLTAGE_L3,
-									new FloatDoublewordElement(250)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-									new FloatDoublewordElement(252)
-											.wordOrder(LSWMSW)), //
-							m(ElectricityMeter.ChannelId.REACTIVE_POWER,
-									new FloatDoublewordElement(254)
-											.wordOrder(LSWMSW)) //
-					));
-			// Calculates required Channels from other existing Channels.
-			this.addCalculateChannelListeners();
+			// read via inverter
+			if (!this.config.wordwrap()) {
+				var modbusProtocol = new ModbusProtocol(this, //
+						new FC3ReadRegistersTask(220, Priority.HIGH, //
+								m(ElectricityMeter.ChannelId.FREQUENCY,
+										new FloatDoublewordElement(220),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L1,
+										new FloatDoublewordElement(222),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
+										new FloatDoublewordElement(224)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1,
+										new FloatDoublewordElement(226)),
+								new DummyRegisterElement(228, 229), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
+										new FloatDoublewordElement(230),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L2,
+										new FloatDoublewordElement(232),
+										SCALE_FACTOR_3),
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
+										new FloatDoublewordElement(234)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2,
+										new FloatDoublewordElement(236)),
+								new DummyRegisterElement(238, 239), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L2,
+										new FloatDoublewordElement(240),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L3,
+										new FloatDoublewordElement(242),
+										SCALE_FACTOR_3),
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
+										new FloatDoublewordElement(244)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3,
+										new FloatDoublewordElement(246)),
+								new DummyRegisterElement(248, 249), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+										new FloatDoublewordElement(250),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
+										new FloatDoublewordElement(252)), //
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER,
+										new FloatDoublewordElement(254)) //
+						));
+				// Calculates required Channels from other existing Channels.
+				// this.addCalculateChannelListeners();
 
-			return modbusProtocol;
+				return modbusProtocol;
+			} else {
+				var modbusProtocol = new ModbusProtocol(this, //
+						new FC3ReadRegistersTask(220, Priority.HIGH, //
+								m(ElectricityMeter.ChannelId.FREQUENCY,
+										new FloatDoublewordElement(220)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L1,
+										new FloatDoublewordElement(222)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
+										new FloatDoublewordElement(224)
+												.wordOrder(LSWMSW)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1,
+										new FloatDoublewordElement(226)
+												.wordOrder(LSWMSW)),
+								new DummyRegisterElement(228, 229), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L1,
+										new FloatDoublewordElement(230)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L2,
+										new FloatDoublewordElement(232)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3),
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
+										new FloatDoublewordElement(234)
+												.wordOrder(LSWMSW)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2,
+										new FloatDoublewordElement(236)
+												.wordOrder(LSWMSW)),
+								new DummyRegisterElement(238, 239), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L2,
+										new FloatDoublewordElement(240)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.CURRENT_L3,
+										new FloatDoublewordElement(242)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3),
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
+										new FloatDoublewordElement(244)
+												.wordOrder(LSWMSW)),
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3,
+										new FloatDoublewordElement(246)
+												.wordOrder(LSWMSW)),
+								new DummyRegisterElement(248, 249), //
+								m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+										new FloatDoublewordElement(250)
+												.wordOrder(LSWMSW),
+										SCALE_FACTOR_3), //
+								m(ElectricityMeter.ChannelId.ACTIVE_POWER,
+										new FloatDoublewordElement(252)
+												.wordOrder(LSWMSW)), //
+								m(ElectricityMeter.ChannelId.REACTIVE_POWER,
+										new FloatDoublewordElement(254)
+												.wordOrder(LSWMSW)) //
+						));
+				// Calculates required Channels from other existing Channels.
+				// this.addCalculateChannelListeners();
+
+				return modbusProtocol;
+			}
 		}
 	}
 

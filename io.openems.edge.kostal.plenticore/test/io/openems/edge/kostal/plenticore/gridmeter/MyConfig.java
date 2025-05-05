@@ -45,6 +45,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
         this.inverter = inverter;
         return this;
       } 
+
+    public Builder setType(MeterType type) {
+        this.type = type;
+        return this;
+      } 
     
     public MyConfig build() {
       return new MyConfig(this);
@@ -94,4 +99,9 @@ public class MyConfig extends AbstractComponentConfig implements Config {
   public boolean viaInverter() {
     return this.builder.inverter;
   }
+
+@Override
+public MeterType type() {
+	return this.builder.type;
+}
 }
