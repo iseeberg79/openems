@@ -185,7 +185,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 					&& this.lastSetPower == activePower
 					// allows moderate differences
 					&& (this.lastSetPower - this.tolerance >= activePower
-							&& this.lastSetPower + this.tolerance <= activePower)
+							&& this.lastSetPower
+									+ this.tolerance <= activePower)
 					&& Duration.between(this.lastApplyPower, now)
 							.getSeconds() < this.watchdog) {
 
@@ -197,18 +198,23 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 			// allow minimum writes if values are maximized (smart control)
 			if (this.lastSetPower != null
 					&& this.controlMode == ControlMode.SMART
-					&& this.lastSetPower == activePower
-					// allows little differences
-					&& (this.lastSetPower - this.tolerance >= activePower
-							&& this.lastSetPower + this.tolerance <= activePower)
-					&& (activePower == this.getMaxChargePower().get()
-							|| Math.abs(activePower) == this
-									.getMaxDischargePower().get())
+					&& (this.lastSetPower == activePower
+							// allows little differences
+							|| (this.lastSetPower
+									- this.tolerance >= activePower
+									&& this.lastSetPower
+											+ this.tolerance <= activePower)
+							// at limits
+							|| (activePower == this.getMaxChargePower().get()
+									|| Math.abs(activePower) == this
+											.getMaxDischargePower().get()) //
+							// in tolerance around zero
+							|| (Math.abs(activePower) < this.tolerance))
 					&& Duration.between(this.lastApplyPower, now)
 							.getSeconds() < this.watchdog) {
 
 				// no need to apply to new set-point
-				log.debug("skipped - wait for expiring watchdog (maximum)");
+				log.debug("skipped - wait for expiring watchdog (tolerance)");
 				return;
 			}
 
@@ -216,6 +222,11 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 			if (this.lastSetPower == null || activePower != this.lastSetPower
 					|| Duration.between(this.lastApplyPower, now)
 							.getSeconds() >= this.watchdog) {
+
+				// in tolerance around zero
+				if (Math.abs(activePower)<this.tolerance) {
+					activePower = 0;
+				}
 
 				// Kostal is fine by writing one register with signed value
 				IntegerWriteChannel setActivePowerChannel = this
@@ -386,7 +397,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 				this.setLimits();
 				break;
 			case EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE :
-				log.debug("== update values topic cycle before process image ==");
+				log.debug(
+						"== update values topic cycle before process image ==");
 				this.calculateEnergy();
 				break;
 		}
@@ -424,7 +436,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 		} catch (NullPointerException e) {
 			// Handle potential null values gracefully
 		}
-		log.debug("--> set limits: " + maxDischargePower + " / " + maxChargePower);
+		log.debug("--> set limits: " + maxDischargePower + " / "
+				+ maxChargePower);
 	}
 
 	private void calculateEnergy() {
