@@ -214,7 +214,7 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 							.getSeconds() < this.watchdog) {
 
 				// no need to apply to new set-point
-				log.debug("skipped - wait for expiring watchdog (maximum)");
+				log.debug("skipped - wait for expiring watchdog (tolerance)");
 				return;
 			}
 
