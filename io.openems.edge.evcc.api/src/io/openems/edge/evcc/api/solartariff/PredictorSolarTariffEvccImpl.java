@@ -203,6 +203,9 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				}
 				this.log.debug("loop completed: " + i + " iterations");
 
+				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED)
+						.setNextValue(true);
+
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
 						.setNextValue(values[0]);
 
@@ -226,8 +229,9 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	@Override
 	public String debugLog() {
-		return "Prediction: "
-				+ this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
-						.value().toString();
+		return "Prediction: " //
+				+ this.getPrediction(this.getChannelAddresses()[0]).getFirst() //
+				+ " Wh";
+		// this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT).value();
 	}
 }

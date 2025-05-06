@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,117 +20,132 @@ import com.google.gson.JsonParser;
 
 import io.openems.edge.timeofusetariff.api.TimeOfUsePrices;
 
+/**
+ * API-Klasse für zeitabhängige Stromtarife über EVCC.
+ */
 public class TimeOfUseGridTariffEvccApi {
 
-	private static final Logger log = LoggerFactory
-			.getLogger(TimeOfUseGridTariffEvccApi.class);
-	private final HttpClient client;
-	private final String apiUrl;
+    private static final Logger log = LoggerFactory.getLogger(TimeOfUseGridTariffEvccApi.class);
+    private final HttpClient client;
+    private final String apiUrl;
+    private final PriceCache cache = new PriceCache(); // Caching-Mechanismus
 
-	public TimeOfUseGridTariffEvccApi(String apiUrl) {
-		this.client = HttpClient.newBuilder()
-				.connectTimeout(java.time.Duration.ofSeconds(5)).build();
-		this.apiUrl = apiUrl;
-	}
+    /**
+     * Konstruktor für die API-Kommunikation.
+     * 
+     * @param apiUrl URL der EVCC-API
+     */
+    public TimeOfUseGridTariffEvccApi(String apiUrl) {
+        this.client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        this.apiUrl = apiUrl;
+    }
 
-	/**
-	 * Fetches time-of-use electricity prices from the API.
-	 *
-	 * <p>This method sends an HTTP GET request to the configured API URL and retrieves 
-	 * the response as a JSON string. If the request is successful (HTTP status code 
-	 * 2xx), the response is parsed into a {@link TimeOfUsePrices} object. Otherwise, 
-	 * it logs a warning and returns an empty prices object.
-	 *
-	 * <p>The method applies a timeout of 5 seconds to both the connection and read operations.
-	 *
-	 * @return A {@link TimeOfUsePrices} object containing the parsed price data or an 
-	 *         empty prices object if the request fails.
-	 * @throws IOException If an I/O error occurs while sending the request.
-	 * @throws InterruptedException If the request is interrupted before completion.
-	 */
-	public TimeOfUsePrices fetchPrices() {
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(this.apiUrl))
-				.GET().timeout(java.time.Duration.ofSeconds(5)).build();
+    /**
+     * Holt Preise entweder aus dem Cache oder führt eine API-Abfrage durch.
+     * 
+     * @return Zeitabhängige Preise.
+     */
+    public TimeOfUsePrices fetchPrices() {
+        return this.cache.getPrices().orElseGet(() -> {
+            TimeOfUsePrices prices = this.fetchPricesFromApi();
+            this.cache.updatePrices(prices);
+            return prices;
+        });
+    }
 
-		try {
-			HttpResponse<String> response = this.client.send(request,
-					HttpResponse.BodyHandlers.ofString());
+    /**
+     * Führt eine API-Abfrage durch, wenn der Cache nicht gültig ist.
+     * 
+     * @return Zeitabhängige Preise aus der API.
+     */
+    private TimeOfUsePrices fetchPricesFromApi() {
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(this.apiUrl)).GET().timeout(Duration.ofSeconds(5)).build();
 
-			if (response.statusCode() >= 200 && response.statusCode() < 300
-					&& response.body() != null) {
-				String json = response.body();
-				return this.parsePrices(json);
-			} else {
-				log.warn("Failed to fetch prices. HTTP status code: {}",
-						response.statusCode());
-			}
-		} catch (IOException | InterruptedException e) {
-			log.error("Error while fetching prices", e);
-		}
+        try {
+            HttpResponse<String> response = this.client.send(request, HttpResponse.BodyHandlers.ofString());
 
-		return TimeOfUsePrices.EMPTY_PRICES;
-	}
+            if (response.statusCode() >= 200 && response.statusCode() < 300 && response.body() != null) {
+                String json = response.body();
+                return this.parsePrices(json);
+            } else {
+                log.warn("Failed to fetch prices. HTTP status code: {}", response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("Error while fetching prices", e);
+        }
 
-	private TimeOfUsePrices parsePrices(String jsonData) {
-		try {
-			// Parse JSON root object
-			var jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
-			var resultObject = jsonObject.getAsJsonObject("result");
-			var ratesArray = resultObject.getAsJsonArray("rates");
+        return TimeOfUsePrices.EMPTY_PRICES;
+    }
 
-			// Prepare ImmutableSortedMap for 15-minute intervals
-			var result = ImmutableSortedMap
-					.<ZonedDateTime, Double>naturalOrder();
+    private TimeOfUsePrices parsePrices(String jsonData) {
+        try {
+            var jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
+            var resultObject = jsonObject.getAsJsonObject("result");
+            var ratesArray = resultObject.getAsJsonArray("rates");
+            var result = ImmutableSortedMap.<ZonedDateTime, Double>naturalOrder();
 
-			for (JsonElement rateElement : ratesArray) {
-				// Ensure rateElement is a JsonObject
-				if (rateElement.isJsonObject()) {
-					JsonObject rateObject = rateElement.getAsJsonObject();
+            for (JsonElement rateElement : ratesArray) {
+                if (rateElement.isJsonObject()) {
+                    JsonObject rateObject = rateElement.getAsJsonObject();
+                    String startString = rateObject.get("start").getAsString();
+                    String endString = rateObject.get("end").getAsString();
+                    double value = rateObject.has("price") ? rateObject.get("price").getAsDouble() * 1000 : rateObject.get("value").getAsDouble() * 1000;
 
-					// Extract necessary fields
-					String startString = rateObject.get("start").getAsString();
-					String endString = rateObject.get("end").getAsString();
-					double value = rateObject.has("price")
-							? rateObject.get("price").getAsDouble() * 1000
-							: rateObject.get("value").getAsDouble() * 1000; // Convert to Currency/MWh
+                    ZonedDateTime startsAt = ZonedDateTime.parse(startString, DateTimeFormatter.ISO_DATE_TIME).withZoneSameInstant(ZonedDateTime.now().getZone());
+                    ZonedDateTime endsAt = ZonedDateTime.parse(endString, DateTimeFormatter.ISO_DATE_TIME).withZoneSameInstant(ZonedDateTime.now().getZone());
+                    long duration = Duration.between(startsAt, endsAt).toMinutes();
 
-					ZonedDateTime startsAt = ZonedDateTime
-							.parse(startString, DateTimeFormatter.ISO_DATE_TIME)
-							.withZoneSameInstant(ZonedDateTime.now().getZone());
-					ZonedDateTime endsAt = ZonedDateTime
-							.parse(endString, DateTimeFormatter.ISO_DATE_TIME)
-							.withZoneSameInstant(ZonedDateTime.now().getZone());
+                    switch ((int) duration) {
+                        case 60:
+                            for (int i = 0; i < 4; i++) {
+                                ZonedDateTime quarterStart = startsAt.plusMinutes(i * 15);
+                                result.put(quarterStart, value);
+                            }
+                            break;
+                        case 15:
+                            result.put(startsAt, value);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unexpected duration for rate: " + duration + " minutes");
+                    }
+                } else {
+                    log.error("Rate element is not a JsonObject: {}", rateElement);
+                }
+            }
 
-					long duration = Duration.between(startsAt, endsAt)
-							.toMinutes();
+            return TimeOfUsePrices.from(result.build());
+        } catch (Exception e) {
+            log.error("Failed to parse EVCC API data", e);
+            return TimeOfUsePrices.EMPTY_PRICES;
+        }
+    }
 
-					switch ((int) duration) {
-						case 60 :
-							for (int i = 0; i < 4; i++) {
-								ZonedDateTime quarterStart = startsAt
-										.plusMinutes(i * 15);
-								result.put(quarterStart, value);
-							}
-							break;
-						case 15 :
-							result.put(startsAt, value);
-							break;
-						default :
-							throw new IllegalArgumentException(
-									"Unexpected duration for rate: " + duration
-											+ " minutes");
-					}
-				} else {
-					log.error("Rate element is not a JsonObject: {}",
-							rateElement);
-				}
-			}
+    // Caching-Klasse mit optimierter Javadoc und `this.` für Instanzvariablen.
+    private static class PriceCache {
+        private TimeOfUsePrices cachedPrices = TimeOfUsePrices.EMPTY_PRICES;
+        private ZonedDateTime lastFetchTime = ZonedDateTime.now().minusMinutes(15);
+        private static final Duration CACHE_DURATION = Duration.ofMinutes(15); // Anpassbare Cache-Dauer
 
-			return TimeOfUsePrices.from(result.build());
-		} catch (Exception e) {
-			log.error("Failed to parse EVCC API data", e);
-			return TimeOfUsePrices.EMPTY_PRICES;
-		}
-	}
+        /**
+         * Holt gespeicherte Preise, falls der Cache gültig ist.
+         * 
+         * @return Optional mit gespeicherten Preisen.
+         */
+        public Optional<TimeOfUsePrices> getPrices() {
+            if (ZonedDateTime.now().isBefore(this.lastFetchTime.plus(CACHE_DURATION))) {
+                return Optional.of(this.cachedPrices);
+            }
+            return Optional.empty();
+        }
 
+        /**
+         * Aktualisiert den Cache mit neuen Preisen.
+         * 
+         * @param newPrices Neue Preise für den Cache.
+         */
+        public void updatePrices(TimeOfUsePrices newPrices) {
+            this.cachedPrices = newPrices;
+            this.lastFetchTime = ZonedDateTime.now();
+        }
+    }
 }
