@@ -229,8 +229,8 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 
 	@Override
 	public String debugLog() {
-		return "Prediction: "
+		return "Prediction: " //
 				+ this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
-						.value().toString();
+						.value();
 	}
 }
