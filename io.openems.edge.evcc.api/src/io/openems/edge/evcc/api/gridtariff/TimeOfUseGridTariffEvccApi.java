@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,31 +26,28 @@ public class TimeOfUseGridTariffEvccApi {
 			.getLogger(TimeOfUseGridTariffEvccApi.class);
 	private final HttpClient client;
 	private final String apiUrl;
+	private final PriceCache cache = new PriceCache(); // Caching-Mechanismus
 
 	public TimeOfUseGridTariffEvccApi(String apiUrl) {
 		this.client = HttpClient.newBuilder()
-				.connectTimeout(java.time.Duration.ofSeconds(5)).build();
+				.connectTimeout(Duration.ofSeconds(5)).build();
 		this.apiUrl = apiUrl;
 	}
 
-	/**
-	 * Fetches time-of-use electricity prices from the API.
-	 *
-	 * <p>This method sends an HTTP GET request to the configured API URL and retrieves 
-	 * the response as a JSON string. If the request is successful (HTTP status code 
-	 * 2xx), the response is parsed into a {@link TimeOfUsePrices} object. Otherwise, 
-	 * it logs a warning and returns an empty prices object.
-	 *
-	 * <p>The method applies a timeout of 5 seconds to both the connection and read operations.
-	 *
-	 * @return A {@link TimeOfUsePrices} object containing the parsed price data or an 
-	 *         empty prices object if the request fails.
-	 * @throws IOException If an I/O error occurs while sending the request.
-	 * @throws InterruptedException If the request is interrupted before completion.
-	 */
+	// Holt Preise aus dem Cache oder ruft die API auf
 	public TimeOfUsePrices fetchPrices() {
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(this.apiUrl))
-				.GET().timeout(java.time.Duration.ofSeconds(5)).build();
+		return cache.getPrices().orElseGet(() -> {
+			TimeOfUsePrices prices = fetchPricesFromApi();
+			cache.updatePrices(prices);
+			return prices;
+		});
+	}
+
+	// API-Abfrage, wenn Cache ungültig ist
+	private TimeOfUsePrices fetchPricesFromApi() {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(this.apiUrl)).GET()
+				.timeout(Duration.ofSeconds(5)).build();
 
 		try {
 			HttpResponse<String> response = this.client.send(request,
@@ -72,26 +70,20 @@ public class TimeOfUseGridTariffEvccApi {
 
 	private TimeOfUsePrices parsePrices(String jsonData) {
 		try {
-			// Parse JSON root object
 			var jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
 			var resultObject = jsonObject.getAsJsonObject("result");
 			var ratesArray = resultObject.getAsJsonArray("rates");
-
-			// Prepare ImmutableSortedMap for 15-minute intervals
 			var result = ImmutableSortedMap
 					.<ZonedDateTime, Double>naturalOrder();
 
 			for (JsonElement rateElement : ratesArray) {
-				// Ensure rateElement is a JsonObject
 				if (rateElement.isJsonObject()) {
 					JsonObject rateObject = rateElement.getAsJsonObject();
-
-					// Extract necessary fields
 					String startString = rateObject.get("start").getAsString();
 					String endString = rateObject.get("end").getAsString();
 					double value = rateObject.has("price")
 							? rateObject.get("price").getAsDouble() * 1000
-							: rateObject.get("value").getAsDouble() * 1000; // Convert to Currency/MWh
+							: rateObject.get("value").getAsDouble() * 1000;
 
 					ZonedDateTime startsAt = ZonedDateTime
 							.parse(startString, DateTimeFormatter.ISO_DATE_TIME)
@@ -99,7 +91,6 @@ public class TimeOfUseGridTariffEvccApi {
 					ZonedDateTime endsAt = ZonedDateTime
 							.parse(endString, DateTimeFormatter.ISO_DATE_TIME)
 							.withZoneSameInstant(ZonedDateTime.now().getZone());
-
 					long duration = Duration.between(startsAt, endsAt)
 							.toMinutes();
 
@@ -132,4 +123,25 @@ public class TimeOfUseGridTariffEvccApi {
 		}
 	}
 
+	// Caching-Klasse für optimierte Leistung
+	private static class PriceCache {
+		private TimeOfUsePrices cachedPrices = TimeOfUsePrices.EMPTY_PRICES;
+		private ZonedDateTime lastFetchTime = ZonedDateTime.now()
+				.minusMinutes(15);
+		// anpassbare Cache-Dauer
+		private static final Duration CACHE_DURATION = Duration.ofMinutes(15);
+
+		public Optional<TimeOfUsePrices> getPrices() {
+			if (ZonedDateTime.now()
+					.isBefore(lastFetchTime.plus(CACHE_DURATION))) {
+				return Optional.of(cachedPrices);
+			}
+			return Optional.empty();
+		}
+
+		public void updatePrices(TimeOfUsePrices newPrices) {
+			this.cachedPrices = newPrices;
+			this.lastFetchTime = ZonedDateTime.now();
+		}
+	}
 }
