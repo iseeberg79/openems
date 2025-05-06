@@ -203,6 +203,9 @@ public class PredictorSolarTariffEvccImpl extends AbstractPredictor
 				}
 				this.log.debug("loop completed: " + i + " iterations");
 
+				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED)
+						.setNextValue(true);
+
 				this.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT)
 						.setNextValue(values[0]);
 
