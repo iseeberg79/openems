@@ -223,6 +223,11 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 					|| Duration.between(this.lastApplyPower, now)
 							.getSeconds() >= this.watchdog) {
 
+				// in tolerance around zero
+				if (Math.abs(activePower)<this.tolerance) {
+					activePower = 0;
+				}
+
 				// Kostal is fine by writing one register with signed value
 				IntegerWriteChannel setActivePowerChannel = this
 						.channel(KostalManagedEss.ChannelId.SET_ACTIVE_POWER);
