@@ -224,7 +224,7 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent
 							.getSeconds() >= this.watchdog) {
 
 				// in tolerance around zero
-				if (Math.abs(activePower)<this.tolerance) {
+				if (Math.abs(activePower) < this.tolerance) {
 					activePower = 0;
 				}
 
