@@ -14,8 +14,7 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.j2mod,\
 	io.openems.edge.pvinverter.api
 -testpath: \
-	${testpath},\
-	io.openems.edge.pvinverter.sunspec
+	${testpath}
 -runfw: org.apache.felix.framework;version='[7.0.5,7.0.5]'
 -runee: JavaSE-21
 
