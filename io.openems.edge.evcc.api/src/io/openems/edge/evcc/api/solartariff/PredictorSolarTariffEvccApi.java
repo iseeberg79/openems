@@ -35,10 +35,11 @@ public class PredictorSolarTariffEvccApi {
 	private static final Logger log = LoggerFactory
 			.getLogger(PredictorSolarTariffEvccApi.class);
 
-	private final BridgeHttp httpBridge;
+	private BridgeHttp httpBridge;
 	private final TreeMap<ZonedDateTime, Integer> hourlySolarData = new TreeMap<>();
-	private final String apiUrl;
-	private final Clock clock;
+
+	private String apiUrl;
+	private Clock clock;
 
 	private Prediction prediction;
 
@@ -59,6 +60,12 @@ public class PredictorSolarTariffEvccApi {
 		public Delay onSuccessRunDelay(HttpResponse<String> result) {
 			return Delay.of(java.time.Duration.ofMinutes(15));
 		}
+	}
+
+	public PredictorSolarTariffEvccApi() {
+		this.httpBridge = null;
+		this.apiUrl = "";
+		this.clock = null;
 	}
 
 	public PredictorSolarTariffEvccApi(String apiUrl, BridgeHttp httpBridge,
@@ -206,6 +213,36 @@ public class PredictorSolarTariffEvccApi {
 	 */
 	public Integer getCurrentPrediction() {
 		return this.currentPrediction;
+	}
+
+	/**
+	 * Sets the HTTP bridge for handling network communication.
+	 *
+	 * @param httpBridge
+	 *            the HTTP bridge to be used
+	 */
+	public void setHttpBridge(BridgeHttp httpBridge) {
+		this.httpBridge = httpBridge;
+	}
+
+	/**
+	 * Sets the API URL for network requests.
+	 *
+	 * @param apiUrl
+	 *            the API URL to be used
+	 */
+	public void setApiUrl(String apiUrl) {
+		this.apiUrl = apiUrl;
+	}
+
+	/**
+	 * Sets the clock for handling time-related functionality.
+	 *
+	 * @param clock
+	 *            the Clock instance to be used
+	 */
+	public void setClock(Clock clock) {
+		this.clock = clock;
 	}
 
 }

@@ -31,9 +31,8 @@ public class TimeOfUseGridTariffEvccApi {
 	private static final Logger log = LoggerFactory
 			.getLogger(TimeOfUseGridTariffEvccApi.class);
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
-
-	private final BridgeHttp httpBridge;
-	private final String apiUrl;
+	private BridgeHttp httpBridge;
+	private String apiUrl;
 	private final AtomicReference<TimeOfUsePrices> prices = new AtomicReference<>(
 			TimeOfUsePrices.EMPTY_PRICES);
 
@@ -56,6 +55,11 @@ public class TimeOfUseGridTariffEvccApi {
 							DurationUnit.ofMinutes(15))
 					.getDelay();
 		}
+	}
+
+	public TimeOfUseGridTariffEvccApi() {
+		this.httpBridge = null;
+		this.apiUrl = "";
 	}
 
 	public TimeOfUseGridTariffEvccApi(String apiUrl, BridgeHttp httpBridge) {
@@ -149,5 +153,25 @@ public class TimeOfUseGridTariffEvccApi {
 			log.error("Failed to parse API data", e);
 			return TimeOfUsePrices.EMPTY_PRICES;
 		}
+	}
+
+	/**
+	 * Sets the HTTP bridge for handling network communication.
+	 *
+	 * @param httpBridge
+	 *            the HTTP bridge to be used
+	 */
+	public void setHttpBridge(BridgeHttp httpBridge) {
+		this.httpBridge = httpBridge;
+	}
+
+	/**
+	 * Sets the API URL for network requests.
+	 *
+	 * @param apiUrl
+	 *            the API URL to be used
+	 */
+	public void setApiUrl(String apiUrl) {
+		this.apiUrl = apiUrl;
 	}
 }
