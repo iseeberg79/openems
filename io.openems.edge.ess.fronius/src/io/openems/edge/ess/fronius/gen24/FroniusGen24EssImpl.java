@@ -146,13 +146,9 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 				SymmetricEss.ChannelId.GRID_MODE //
 		);
 
-		// Fronius GEN24 uses S160 module 3 and 4 for battery charge and discharge power
+		// Fronius GEN24 uses S160 module 3 and 4 for battery charge and discharge power (40325/40345 int+sf)
 		this.mapFirstPointToChannel(SymmetricEss.ChannelId.SOC, ElementToChannelConverter.DIRECT_1_TO_1,
 				DefaultSunSpecModel.S124.CHA_STATE);
-//		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.CHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
-//				DefaultSunSpecModel.S160.MODULE_3_DCW);
-//		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.DISCHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
-//				DefaultSunSpecModel.S160.MODULE_4_DCW);
 
 		try {
 			this.addPowerConstraint("SetReactivePowerGreaterOrEquals", Phase.ALL, Pwr.ACTIVE,
@@ -217,7 +213,7 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 	 */
 	private void addStaticModbusTasks(ModbusProtocol protocol) throws OpenemsException {
 		protocol.addTasks(//
-				new FC3ReadRegistersTask(40325, Priority.HIGH, //
+				new FC3ReadRegistersTask(40268, Priority.HIGH, //
 						m(FroniusGen24Ess.ChannelId.DCW_SF, new UnsignedWordElement(40268))),
 				new FC3ReadRegistersTask(40325, Priority.HIGH, //
 						m(FroniusGen24Ess.ChannelId.CHARGE_POWER, new UnsignedWordElement(40325))),
