@@ -1,5 +1,7 @@
 package io.openems.edge.ess.fronius.gen24;
 
+import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE;
+
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -13,6 +15,9 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +30,9 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
+import io.openems.edge.bridge.modbus.api.ModbusProtocol;
+import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.sunspec.AbstractOpenemsSunSpecComponent;
 import io.openems.edge.bridge.modbus.sunspec.DefaultSunSpecModel;
 import io.openems.edge.bridge.modbus.sunspec.SunSpecModel;
@@ -43,25 +51,33 @@ import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.ess.power.api.Pwr;
 import io.openems.edge.ess.power.api.Relationship;
 
+// starting point is from https://github.com/opernikus-common/openems/tree/feature/fronius.gen24 
+// because sunspec model 160 was implemented until today, we need to use another method - here we read sunspec data from the registers manually
+
 @Designate(ocd = Config.class, factory = true)
 @Component(//
 		name = "Ess.Fronius.GEN24", //
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
-public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
-		implements ManagedSymmetricEss, SymmetricEss, OpenemsComponent {
+@EventTopics({ //
+	TOPIC_CYCLE_BEFORE_PROCESS_IMAGE, //
+})
 
+public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent implements //
+		FroniusGen24Ess,
+		ManagedSymmetricEss, //
+		SymmetricEss, //
+		OpenemsComponent, //
+		ModbusComponent, //
+		EventHandler //
+{
 	private final Logger log = LoggerFactory.getLogger(FroniusGen24EssImpl.class);
 	private static final int READ_FROM_MODBUS_BLOCK = 1;
 
 	private static final Map<SunSpecModel, Priority> ACTIVE_MODELS = ImmutableMap.<SunSpecModel, Priority>builder()
 			.put(DefaultSunSpecModel.S_1, Priority.LOW) //
-			// .put(DefaultSunSpecModel.S_103, Priority.LOW) //
-			// .put(DefaultSunSpecModel.S_122, Priority.LOW) // GEN24
-			// .put(DefaultSunSpecModel.S_123, Priority.LOW) // GEN24
 			.put(DefaultSunSpecModel.S_124, Priority.HIGH) // GEN24
-			.put(DefaultSunSpecModel.S_160, Priority.HIGH) // GEN24
 			.build();
 
 	@Reference
@@ -82,7 +98,7 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
 				ManagedSymmetricEss.ChannelId.values(), //
 				FroniusGen24Ess.ChannelId.values() //
 		);
-
+		this.addStaticModbusTasks(this.getModbusProtocol());
 	}
 
 	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
@@ -133,10 +149,10 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
 		// Fronius GEN24 uses S160 module 3 and 4 for battery charge and discharge power
 		this.mapFirstPointToChannel(SymmetricEss.ChannelId.SOC, ElementToChannelConverter.DIRECT_1_TO_1,
 				DefaultSunSpecModel.S124.CHA_STATE);
-		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.CHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
-				DefaultSunSpecModel.S160.MODULE_3_DCW);
-		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.DISCHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
-				DefaultSunSpecModel.S160.MODULE_4_DCW);
+//		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.CHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
+//				DefaultSunSpecModel.S160.MODULE_3_DCW);
+//		this.mapFirstPointToChannel(FroniusGen24Ess.ChannelId.DISCHARGE_POWER, ElementToChannelConverter.DIRECT_1_TO_1,
+//				DefaultSunSpecModel.S160.MODULE_4_DCW);
 
 		try {
 			this.addPowerConstraint("SetReactivePowerGreaterOrEquals", Phase.ALL, Pwr.ACTIVE,
@@ -193,6 +209,22 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
 
 	private int surveillanceCntr = 0;
 
+	/**
+	 * Adds static modbus tasks, replaces sunspec model 160
+	 * 
+	 * @param protocol the {@link ModbusProtocol}
+	 * @throws OpenemsException on error
+	 */
+	private void addStaticModbusTasks(ModbusProtocol protocol) throws OpenemsException {
+		protocol.addTasks(//
+				new FC3ReadRegistersTask(40325, Priority.HIGH, //
+						m(FroniusGen24Ess.ChannelId.DCW_SF, new UnsignedWordElement(40268))),
+				new FC3ReadRegistersTask(40325, Priority.HIGH, //
+						m(FroniusGen24Ess.ChannelId.CHARGE_POWER, new UnsignedWordElement(40325))),
+				new FC3ReadRegistersTask(40345, Priority.HIGH, //
+						m(FroniusGen24Ess.ChannelId.DISCHARGE_POWER, new UnsignedWordElement(40345))));
+	}
+
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
 
@@ -226,14 +258,12 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
 		try {
 			Float maxPower = maxPowerChannel.value().getOrError();
 
-			// { //debug
-			// Float chargePowerPercentage =
-			// activeChargePowerPercentageChannel.value().get();
-			// Float dischargePowerPercentage =
-			// activeDischargePowerPercentageChannel.value().get();
-			// this.logInfo(this.log, "[" + this.reqState + "] percentages charge: " +
-			// chargePowerPercentage + " discharge: " + dischargePowerPercentage);
-			// }
+			{ // debug
+				Float chargePowerPercentage = activeChargePowerPercentageChannel.value().get();
+				Float dischargePowerPercentage = activeDischargePowerPercentageChannel.value().get();
+				this.logInfo(this.log, "[" + this.reqState + "] percentages charge: " + chargePowerPercentage
+						+ " discharge: " + dischargePowerPercentage);
+			}
 
 			/*
 			 * Note: -an exception is raised in 40356 when the old activePower was smaller
@@ -454,6 +484,24 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent
 	@Override
 	public int getPowerPrecision() {
 		return 1;
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		if (!this.isEnabled()) {
+			return;
+		}
+		switch (event.getTopic()) {
+		case TOPIC_CYCLE_BEFORE_PROCESS_IMAGE:
+			this.applyScaleFactors();
+			break;
+		}
+	}
+
+	private void applyScaleFactors() {
+		int sf = this.getScaleFactorPowerChannel().getNextValue().get();
+		this.getChargePowerChannel().setNextValue((double)this.getChargePowerChannel().getNextValue().get() * Math.pow(10, sf));
+		this.getDischargePowerChannel().setNextValue((double)this.getDischargePowerChannel().getNextValue().get() * Math.pow(10, sf));
 	}
 
 }
