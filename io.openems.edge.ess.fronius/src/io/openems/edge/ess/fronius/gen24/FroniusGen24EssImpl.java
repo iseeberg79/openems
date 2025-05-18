@@ -52,7 +52,8 @@ import io.openems.edge.ess.power.api.Pwr;
 import io.openems.edge.ess.power.api.Relationship;
 
 // starting point is from https://github.com/opernikus-common/openems/tree/feature/fronius.gen24 
-// because sunspec model 160 was implemented until today, we need to use another method - here we read sunspec data from the registers manually
+// because sunspec model 160 was implemented until today, we need to use another method
+// as an alternative solution we read sunspec data from the registers manually
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
