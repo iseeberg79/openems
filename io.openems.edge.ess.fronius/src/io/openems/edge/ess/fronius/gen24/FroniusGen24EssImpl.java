@@ -50,6 +50,9 @@ import io.openems.edge.ess.power.api.Phase;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.ess.power.api.Pwr;
 import io.openems.edge.ess.power.api.Relationship;
+import io.openems.edge.timedata.api.Timedata;
+import io.openems.edge.timedata.api.TimedataProvider;
+import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 // starting point is from https://github.com/opernikus-common/openems/tree/feature/fronius.gen24 
 // because sunspec model 160 was implemented until today, we need to use another method
@@ -71,7 +74,8 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 		SymmetricEss, //
 		OpenemsComponent, //
 		ModbusComponent, //
-		EventHandler //
+		EventHandler,
+		TimedataProvider//
 {
 	private final Logger log = LoggerFactory.getLogger(FroniusGen24EssImpl.class);
 	private static final int READ_FROM_MODBUS_BLOCK = 1;
@@ -86,6 +90,15 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 
 	@Reference
 	protected ConfigurationAdmin cm;
+
+	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	private volatile Timedata timedata = null;
+	
+	// is DC power for consistency
+	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(this,
+			SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateAcDischargeEnergy = new CalculateEnergyFromPower(this,
+			SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 
 	private Config config;
 	private boolean sunSpecInitialized = false;
@@ -490,9 +503,16 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 		}
 		switch (event.getTopic()) {
 		case TOPIC_CYCLE_BEFORE_PROCESS_IMAGE:
+			log.debug("== update values topic cycle before process image ==");
 			this.applyScaleFactors();
+			this.calculateEnergy();
 			break;
 		}
+	}
+	
+	@Override
+	public Timedata getTimedata() {
+		return this.timedata;
 	}
 
 	private void applyScaleFactors() {
@@ -501,4 +521,25 @@ public class FroniusGen24EssImpl extends AbstractOpenemsSunSpecComponent impleme
 		this.getDischargePowerChannel().setNextValue((double)this.getDischargePowerChannel().getNextValue().get() * Math.pow(10, sf));
 	}
 
+	private void calculateEnergy() {
+		// Calculate AC Energy
+		var activePower = this.getActivePowerChannel().getNextValue().get();
+		if (activePower == null) {
+			// Not available
+			this.calculateAcChargeEnergy.update(null);
+			this.calculateAcDischargeEnergy.update(null);
+		} else {
+			log.debug("valid active power for calculation of energy");
+			if (activePower > 0) {
+				// Discharge
+				this.calculateAcChargeEnergy.update(0);
+				this.calculateAcDischargeEnergy.update(activePower);
+			} else {
+				// Charge
+				this.calculateAcChargeEnergy.update(activePower * -1);
+				this.calculateAcDischargeEnergy.update(0);
+			}
+		}
+	}
+	
 }
