@@ -29,6 +29,19 @@ export class ModalComponent extends AbstractModal {
     public targetEpochSeconds: number | null = null;
     public chargeStartEpochSeconds: number | null = null;
 
+    public CONVERT_EPOCH_TO_LOCAL_TIME = (epochSeconds: number): string => {
+        if (!epochSeconds) {
+            return '--';
+        }
+
+        const date = new Date(epochSeconds * 1000);
+        return date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    };
+
     protected override getChannelAddresses(): ChannelAddress[] {
         this.refreshChart = false;
         const channels: ChannelAddress[] = [];

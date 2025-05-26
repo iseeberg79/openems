@@ -12,9 +12,9 @@
         </oe-modal-line>
 
         <!--DelayCharge target minute-->
-        <oe-modal-line *ngIf="targetMinute && this.delayChargeState !== DelayChargeState.NO_REMAINING_TIME"
+        <oe-modal-line *ngIf="targetEpochSeconds && this.delayChargeState !== DelayChargeState.NO_REMAINING_TIME"
             leftColumnWidth="70" [name]="'Edge.Index.Widgets.GridOptimizedCharge.endTimeLong'| translate"
-            [converter]="CONVERT_MINUTE_TO_TIME_OF_DAY" [value]="targetMinute">
+            [converter]="CONVERT_EPOCH_TO_LOCAL_TIME" [value]="targetEpochSeconds">
         </oe-modal-line>
 
         <!-- Capacity (visible for admin only)-->
