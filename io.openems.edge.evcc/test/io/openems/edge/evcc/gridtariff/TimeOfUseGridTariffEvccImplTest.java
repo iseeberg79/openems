@@ -1,8 +1,9 @@
-package io.openems.edge.evcc.api.gridtariff;
+package io.openems.edge.evcc.gridtariff;
 
 import org.junit.Test;
 
 import io.openems.edge.common.test.ComponentTest;
+import io.openems.edge.evcc.gridtariff.TimeOfUseGridTariffEvccImpl;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 
 public class TimeOfUseGridTariffEvccImplTest {

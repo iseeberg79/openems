@@ -1,6 +1,7 @@
-package io.openems.edge.evcc.api.gridtariff;
+package io.openems.edge.evcc.gridtariff;
 
 import io.openems.common.test.AbstractComponentConfig;
+import io.openems.edge.evcc.gridtariff.Config;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 
 @SuppressWarnings("all")

@@ -43,12 +43,12 @@
 	bnd.identity;id='io.openems.edge.battery.bydcommercial',\
 	bnd.identity;id='io.openems.edge.battery.fenecon.commercial',\
 	bnd.identity;id='io.openems.edge.battery.fenecon.home',\
-	bnd.identity;id='io.openems.edge.battery.pylontech',\
-	bnd.identity;id='io.openems.edge.battery.soltaro',\
 	bnd.identity;id='io.openems.edge.batteryinverter.kaco.blueplanetgridsave',\
 	bnd.identity;id='io.openems.edge.batteryinverter.refu88k',\
 	bnd.identity;id='io.openems.edge.batteryinverter.sinexcel',\
 	bnd.identity;id='io.openems.edge.batteryinverter.sunspec',\
+	bnd.identity;id='io.openems.edge.battery.pylontech',\
+	bnd.identity;id='io.openems.edge.battery.soltaro',\
 	bnd.identity;id='io.openems.edge.bosch.bpts5hybrid',\
 	bnd.identity;id='io.openems.edge.bridge.http',\
 	bnd.identity;id='io.openems.edge.bridge.mbus',\
@@ -99,8 +99,8 @@
 	bnd.identity;id='io.openems.edge.controller.io.analog',\
 	bnd.identity;id='io.openems.edge.controller.io.channelsinglethreshold',\
 	bnd.identity;id='io.openems.edge.controller.io.fixdigitaloutput',\
-	bnd.identity;id='io.openems.edge.controller.io.heating.room',\
 	bnd.identity;id='io.openems.edge.controller.io.heatingelement',\
+	bnd.identity;id='io.openems.edge.controller.io.heating.room',\
 	bnd.identity;id='io.openems.edge.controller.io.heatpump.sgready',\
 	bnd.identity;id='io.openems.edge.controller.levl',\
 	bnd.identity;id='io.openems.edge.controller.pvinverter.fixpowerlimit',\
@@ -122,7 +122,7 @@
 	bnd.identity;id='io.openems.edge.ess.generic',\
 	bnd.identity;id='io.openems.edge.ess.samsung',\
 	bnd.identity;id='io.openems.edge.ess.sma',\
-	bnd.identity;id='io.openems.edge.evcc.api',\
+	bnd.identity;id='io.openems.edge.evcc',\
 	bnd.identity;id='io.openems.edge.evcs.alpitronic.hypercharger',\
 	bnd.identity;id='io.openems.edge.evcs.cluster',\
 	bnd.identity;id='io.openems.edge.evcs.core',\
@@ -158,6 +158,7 @@
 	bnd.identity;id='io.openems.edge.kaco.blueplanet.hybrid10',\
 	bnd.identity;id='io.openems.edge.katek.edcom',\
 	bnd.identity;id='io.openems.edge.kostal.piko',\
+	bnd.identity;id='io.openems.edge.kostal.plenticore',\
 	bnd.identity;id='io.openems.edge.meter.abb',\
 	bnd.identity;id='io.openems.edge.meter.artemes.am2',\
 	bnd.identity;id='io.openems.edge.meter.bcontrol.em300',\
@@ -206,6 +207,7 @@
 	bnd.identity;id='io.openems.edge.timeofusetariff.manual',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.rabotcharge',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.swisspower',\
+	bnd.identity;id='io.openems.edge.timeofusetariff.tibber',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.tibber'
 -runbundles: \
 	Java-WebSocket;version='[1.5.4,1.5.5)',\
@@ -309,7 +311,7 @@
 	io.openems.edge.ess.generic;version=snapshot,\
 	io.openems.edge.ess.samsung;version=snapshot,\
 	io.openems.edge.ess.sma;version=snapshot,\
-	io.openems.edge.evcc.api;version=snapshot,\
+	io.openems.edge.evcc;version=snapshot,\
 	io.openems.edge.evcs.alpitronic.hypercharger;version=snapshot,\
 	io.openems.edge.evcs.api;version=snapshot,\
 	io.openems.edge.evcs.cluster;version=snapshot,\
@@ -348,6 +350,7 @@
 	io.openems.edge.kaco.blueplanet.hybrid10;version=snapshot,\
 	io.openems.edge.katek.edcom;version=snapshot,\
 	io.openems.edge.kostal.piko;version=snapshot,\
+	io.openems.edge.kostal.plenticore;version=snapshot,\
 	io.openems.edge.meter.abb;version=snapshot,\
 	io.openems.edge.meter.api;version=snapshot,\
 	io.openems.edge.meter.artemes.am2;version=snapshot,\

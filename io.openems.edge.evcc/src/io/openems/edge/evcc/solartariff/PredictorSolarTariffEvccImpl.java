@@ -1,4 +1,4 @@
-package io.openems.edge.evcc.api.solartariff;
+package io.openems.edge.evcc.solartariff;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

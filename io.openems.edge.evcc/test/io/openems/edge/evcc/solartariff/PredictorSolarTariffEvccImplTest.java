@@ -1,8 +1,9 @@
-package io.openems.edge.evcc.api.solartariff;
+package io.openems.edge.evcc.solartariff;
 
 import org.junit.Test;
 
 import io.openems.edge.common.test.ComponentTest;
+import io.openems.edge.evcc.solartariff.PredictorSolarTariffEvccImpl;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 
 public class PredictorSolarTariffEvccImplTest {
