@@ -57,7 +57,7 @@ public class PredictorSolarTariffEvccImplTest {
 
 				// Case: simulated API processing (60 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					String jsonResponse = generateDynamicJson(60);
+					String jsonResponse = this.generateDynamicJson(60);
 					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
 					httpTestBundle.triggerNextCycle();
 
@@ -73,8 +73,8 @@ public class PredictorSolarTariffEvccImplTest {
 
 					Integer[] predictions = prediction.asArray();
 
-					final int expectedFirstValue = getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);
@@ -94,7 +94,7 @@ public class PredictorSolarTariffEvccImplTest {
 
 				// Case: simulated API processing (30 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					String jsonResponse = generateDynamicJson(30);
+					String jsonResponse = this.generateDynamicJson(30);
 					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
 					httpTestBundle.triggerNextCycle();
 
@@ -110,8 +110,8 @@ public class PredictorSolarTariffEvccImplTest {
 
 					Integer[] predictions = prediction.asArray();
 
-					final int expectedFirstValue = getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);
@@ -131,7 +131,7 @@ public class PredictorSolarTariffEvccImplTest {
 
 				// Case: simulated API processing (15 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					String jsonResponse = generateDynamicJson(15);
+					String jsonResponse = this.generateDynamicJson(15);
 					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
 					httpTestBundle.triggerNextCycle();
 
@@ -147,8 +147,8 @@ public class PredictorSolarTariffEvccImplTest {
 
 					Integer[] predictions = prediction.asArray();
 
-					final int expectedFirstValue = getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);
@@ -180,7 +180,7 @@ public class PredictorSolarTariffEvccImplTest {
 			jsonBuilder.append(String.format("""
 					    { "start": "%s", "end": "%s", "value": %d },
 					""", time.format(formatter), time.plusMinutes(minutes).format(formatter),
-					getSolarPredictionValue(time)));
+					this.getSolarPredictionValue(time)));
 		}
 
 		jsonBuilder.setLength(jsonBuilder.length() - 2);
