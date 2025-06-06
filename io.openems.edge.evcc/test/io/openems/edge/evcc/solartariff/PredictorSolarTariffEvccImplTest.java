@@ -179,7 +179,7 @@ public class PredictorSolarTariffEvccImplTest {
 		for (ZonedDateTime time = now; time.isBefore(endTime); time = time.plusMinutes(minutes)) {
 			jsonBuilder.append(String.format("""
 					    { "start": "%s", "end": "%s", "value": %d },
-					""", time.format(formatter), time.plusMinutes(minutes).format(formatter),
+					""", time.format(this.formatter), time.plusMinutes(minutes).format(this.formatter),
 					this.getSolarPredictionValue(time)));
 		}
 
