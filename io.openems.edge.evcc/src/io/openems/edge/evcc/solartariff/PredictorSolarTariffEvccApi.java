@@ -29,20 +29,18 @@ import io.openems.edge.predictor.api.prediction.Prediction;
 @Component(name = "PredictorSolarTariffEvccApi", immediate = true)
 public class PredictorSolarTariffEvccApi {
 
-	private static final Logger log = LoggerFactory
-			.getLogger(PredictorSolarTariffEvccApi.class);
+	private static final Logger log = LoggerFactory.getLogger(PredictorSolarTariffEvccApi.class);
 	private BridgeHttp httpBridge;
 	private String apiUrl;
 	private Clock clock;
 	private Prediction prediction;
 	private Integer currentPrediction;
-	private ImmutableSortedMap<ZonedDateTime, Integer> solarData = ImmutableSortedMap
-			.of();
+	private ImmutableSortedMap<ZonedDateTime, Integer> solarData = ImmutableSortedMap.of();
 
 	private static class SolarTariffProvider implements DelayTimeProvider {
 		@Override
 		public Delay onFirstRunDelay() {
-			return Delay.of(Duration.ofSeconds(5));
+			return Delay.of(Duration.ZERO);
 		}
 
 		@Override
@@ -62,53 +60,44 @@ public class PredictorSolarTariffEvccApi {
 		this.clock = null;
 	}
 
-	public PredictorSolarTariffEvccApi(String apiUrl, BridgeHttp httpBridge,
-			Clock clock) {
+	public PredictorSolarTariffEvccApi(String apiUrl, BridgeHttp httpBridge, Clock clock) {
 		this.apiUrl = apiUrl;
 		this.httpBridge = httpBridge;
 		this.clock = clock;
-		this.httpBridge.subscribeTime(new SolarTariffProvider(),
-				this::createEndpoint, this::handleResponse, this::handleError);
+		this.httpBridge.subscribeTime(new SolarTariffProvider(), this::createEndpoint, this::handleResponse,
+				this::handleError);
 	}
 
 	private Endpoint createEndpoint() {
 		var url = UrlBuilder.parse(this.apiUrl);
-		return new Endpoint(url.toEncodedString(), HttpMethod.GET, 5000, 5000,
-				null, Map.of("Accept", "application/json"));
+		return new Endpoint(url.toEncodedString(), HttpMethod.GET, 5000, 5000, null,
+				Map.of("Accept", "application/json"));
 	}
 
 	private void handleError(HttpError error) {
 		log.error("HTTP Error: {}", error.getMessage());
 	}
 
-	private void handleResponse(HttpResponse<String> response)
-			throws IOException {
-		this.prediction = Prediction.EMPTY_PREDICTION;
-
+	private void handleResponse(HttpResponse<String> response) throws IOException {
 		if (response.status().isSuccessful()) {
 			try {
 				log.info("Received response from Solar Forecast API.");
 				log.debug("Raw API Response: {}", response.data());
-
-				this.solarData = this.parsePrices(response.data());
-				log.debug("Parsed solar data: {}", this.solarData);
-
-				this.calculatePrediction();
-				log.debug("Calculated prediction: {}", this.prediction);
+				this.prediction = this.parsePrediction(response.data());
+				this.currentPrediction = this.prediction.getFirst().intValue();
 			} catch (OpenemsNamedException e) {
-				log.warn(
-						"Invalid or empty response from Solar Forecast API. Exception: {}",
-						e.getMessage());
+				log.warn("Invalid or empty response from Solar Forecast API. Exception: {}", e.getMessage());
+				this.currentPrediction = 0;
 				this.prediction = Prediction.EMPTY_PREDICTION;
 			}
 		} else {
-			log.warn("Failed to fetch solar forecast. HTTP status code: {}",
-					response.status().code());
+			log.warn("Failed to fetch solar forecast. HTTP status code: {}", response.status().code());
+			this.currentPrediction = 0;
+			this.prediction = Prediction.EMPTY_PREDICTION;
 		}
 	}
 
-	private ImmutableSortedMap<ZonedDateTime, Integer> parsePrices(
-			String jsonData) throws OpenemsNamedException {
+	private ImmutableSortedMap<ZonedDateTime, Integer> parseJson(String jsonData) throws OpenemsNamedException {
 		var result = ImmutableSortedMap.<ZonedDateTime, Integer>naturalOrder();
 		var jsonObject = JsonUtils.parseToJsonObject(jsonData);
 		var resultObject = JsonUtils.getAsJsonObject(jsonObject, "result");
@@ -122,12 +111,10 @@ public class PredictorSolarTariffEvccApi {
 			log.debug("Processing JSON element: {}", element);
 
 			Integer power = JsonUtils.getAsOptionalInt(element, "value")
-					.orElseGet(() -> JsonUtils
-							.getAsOptionalInt(element, "price").orElse(null));
+					.orElseGet(() -> JsonUtils.getAsOptionalInt(element, "price").orElse(null));
 
 			if (power == null) {
-				log.error("Missing 'value' or 'price' field in JSON data: {}",
-						element);
+				log.error("Missing 'value' or 'price' field in JSON data: {}", element);
 				return ImmutableSortedMap.of();
 			}
 
@@ -140,28 +127,26 @@ public class PredictorSolarTariffEvccApi {
 				ZonedDateTime endTime = ZonedDateTime.parse(endString);
 				duration = Duration.between(startTime, endTime).toMinutes();
 
-				log.debug("Parsed end time: {} - Duration: {} minutes", endTime,
-						duration);
+				log.debug("Parsed end time: {} - Duration: {} minutes", endTime, duration);
 			}
 
 			switch ((int) duration) {
-				case 60 :
-					result.put(startTime, power);
-					result.put(startTime.plusMinutes(15), power);
-					result.put(startTime.plusMinutes(30), power);
-					result.put(startTime.plusMinutes(45), power);
-					break;
-				case 30 :
-					result.put(startTime, power);
-					result.put(startTime.plusMinutes(15), power);
-					break;
-				case 15 :
-					result.put(startTime, power);
-					break;
-				default :
-					log.error("Unexpected duration for power: {} minutes",
-							duration);
-					return ImmutableSortedMap.of();
+			case 60:
+				result.put(startTime, power);
+				result.put(startTime.plusMinutes(15), power);
+				result.put(startTime.plusMinutes(30), power);
+				result.put(startTime.plusMinutes(45), power);
+				break;
+			case 30:
+				result.put(startTime, power);
+				result.put(startTime.plusMinutes(15), power);
+				break;
+			case 15:
+				result.put(startTime, power);
+				break;
+			default:
+				log.error("Unexpected duration for power: {} minutes", duration);
+				return ImmutableSortedMap.of();
 			}
 		}
 
@@ -169,9 +154,11 @@ public class PredictorSolarTariffEvccApi {
 		return result.build();
 	}
 
-	private void calculatePrediction() {
-		LocalDateTime localCurrentHour = LocalDateTime.now(this.clock)
-				.withSecond(0).withNano(0).withMinute(0);
+	public Prediction parsePrediction(String jsonData) throws OpenemsNamedException {
+		this.solarData = parseJson(jsonData);
+		log.debug("Parsed solar data: {}", this.solarData);
+
+		LocalDateTime localCurrentHour = LocalDateTime.now(this.clock).withSecond(0).withNano(0).withMinute(0);
 		ZoneId zoneId = ZoneId.of("UTC");
 		ZonedDateTime currentHour = localCurrentHour.atZone(zoneId);
 
@@ -184,8 +171,11 @@ public class PredictorSolarTariffEvccApi {
 			}
 		}
 
-		this.prediction = Prediction.from(currentHour, values);
-		this.currentPrediction = values[0];
+		Prediction prediction = Prediction.from(currentHour, values);
+
+		log.debug("Calculated prediction: {}", prediction);
+
+		return prediction;
 	}
 
 	/**
@@ -209,8 +199,7 @@ public class PredictorSolarTariffEvccApi {
 	/**
 	 * Sets the HTTP bridge for handling network communication.
 	 *
-	 * @param httpBridge
-	 *            the HTTP bridge to be used.
+	 * @param httpBridge the HTTP bridge to be used.
 	 */
 	public void setHttpBridge(BridgeHttp httpBridge) {
 		this.httpBridge = httpBridge;
@@ -219,8 +208,7 @@ public class PredictorSolarTariffEvccApi {
 	/**
 	 * Sets the API URL for retrieving solar forecast data.
 	 *
-	 * @param apiUrl
-	 *            the API URL to be used.
+	 * @param apiUrl the API URL to be used.
 	 */
 	public void setApiUrl(String apiUrl) {
 		this.apiUrl = apiUrl;
@@ -229,8 +217,7 @@ public class PredictorSolarTariffEvccApi {
 	/**
 	 * Sets the clock for handling time-based calculations.
 	 *
-	 * @param clock
-	 *            the Clock instance to be used.
+	 * @param clock the Clock instance to be used.
 	 */
 	public void setClock(Clock clock) {
 		this.clock = clock;
