@@ -4,12 +4,10 @@ import static io.openems.common.test.TestUtils.createDummyClock;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Random;
+import java.time.format.DateTimeFormatter;
 
 import org.junit.Test;
 
@@ -24,17 +22,14 @@ import io.openems.edge.predictor.api.prediction.Prediction;
 
 public class PredictorSolarTariffEvccImplTest {
 
+	final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
+
 	@Test
 	public void testSolarTariffPrediction() throws Exception {
 		final var sut = new PredictorSolarTariffEvccImpl();
 		final var api = new PredictorSolarTariffEvccApi();
 		final var httpTestBundle = new DummyBridgeHttpBundle();
 		final var clock = createDummyClock();
-		
-		Random random = new Random();
-		int randomHours = 6 + random.nextInt(13);
-		clock.leap(randomHours, ChronoUnit.HOURS);
-		api.setClock(clock);
 
 		new ComponentTest(sut).addReference("httpBridgeFactory", httpTestBundle.factory())
 				.addReference("componentManager", new DummyComponentManager(clock))
@@ -60,44 +55,132 @@ public class PredictorSolarTariffEvccImplTest {
 					assertNotEquals(true, sut.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED).value());
 				}))
 
-				// Case: simulated API processing
+				// Case: simulated API processing (60 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					String jsonResponse = generateDynamicJson(clock);
+					String jsonResponse = generateDynamicJson(60);
 					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
 					httpTestBundle.triggerNextCycle();
 
 					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
 
 					Prediction prediction = api.parsePrediction(jsonResponse);
-					LocalDateTime localCurrentHour = LocalDateTime.now(clock).withSecond(0).withNano(0).withMinute(0);
-					ZoneId zoneId = ZoneId.of("UTC");
-					ZonedDateTime currentHour = localCurrentHour.atZone(zoneId);
+					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
 
-					int expectedFirstValue = getSolarPredictionValue(currentHour);
-					int expectedSecondHourValue = getSolarPredictionValue(currentHour.plusHours(1));
+					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
+					ZoneId localZone = ZoneId.systemDefault();
+					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
+					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
 
 					Integer[] predictions = prediction.asArray();
+
+					final int expectedFirstValue = getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+
+					// check object count
 					assertEquals(8, predictions.length);
+
+					// check first timestamp (in UTC)
 					assertEquals(currentHour, prediction.getFirstTime());
+
+					// check quaterly values
 					assertEquals(expectedFirstValue, predictions[0].intValue());
 					assertEquals(expectedFirstValue, predictions[1].intValue());
 					assertEquals(expectedFirstValue, predictions[2].intValue());
 					assertEquals(expectedFirstValue, predictions[3].intValue());
+
+					// check first value of next hour
 					assertEquals(expectedSecondHourValue, predictions[4].intValue());
-				})).deactivate();
+				})) //
+
+				// Case: simulated API processing (30 minutes)
+				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
+					String jsonResponse = generateDynamicJson(30);
+					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
+					httpTestBundle.triggerNextCycle();
+
+					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
+
+					Prediction prediction = api.parsePrediction(jsonResponse);
+					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
+
+					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
+					ZoneId localZone = ZoneId.systemDefault();
+					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
+					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
+
+					Integer[] predictions = prediction.asArray();
+
+					final int expectedFirstValue = getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+
+					// check object count
+					assertEquals(8, predictions.length);
+
+					// check first timestamp (in UTC)
+					assertEquals(currentHour, prediction.getFirstTime());
+
+					// check quaterly values
+					assertEquals(expectedFirstValue, predictions[0].intValue());
+					assertEquals(expectedFirstValue, predictions[1].intValue());
+					assertEquals(expectedFirstValue, predictions[2].intValue());
+					assertEquals(expectedFirstValue, predictions[3].intValue());
+
+					// check first value of next hour
+					assertEquals(expectedSecondHourValue, predictions[4].intValue());
+				})) //
+
+				// Case: simulated API processing (15 minutes)
+				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
+					String jsonResponse = generateDynamicJson(15);
+					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
+					httpTestBundle.triggerNextCycle();
+
+					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
+
+					Prediction prediction = api.parsePrediction(jsonResponse);
+					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
+
+					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
+					ZoneId localZone = ZoneId.systemDefault();
+					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
+					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
+
+					Integer[] predictions = prediction.asArray();
+
+					final int expectedFirstValue = getSolarPredictionValue(localZoned);
+					final int expectedSecondHourValue = getSolarPredictionValue(localZoned.plusHours(1));
+
+					// check object count
+					assertEquals(8, predictions.length);
+
+					// check first timestamp (in UTC)
+					assertEquals(currentHour, prediction.getFirstTime());
+
+					// check quaterly values
+					assertEquals(expectedFirstValue, predictions[0].intValue());
+					assertEquals(expectedFirstValue, predictions[1].intValue());
+					assertEquals(expectedFirstValue, predictions[2].intValue());
+					assertEquals(expectedFirstValue, predictions[3].intValue());
+
+					// check first value of next hour
+					assertEquals(expectedSecondHourValue, predictions[4].intValue());
+				})) //
+				
+				.deactivate();
 	}
 
-	private String generateDynamicJson(Clock clock) {
-		ZonedDateTime now = ZonedDateTime.now(clock).withMinute(0).withSecond(0).withNano(0);
+	private String generateDynamicJson(int minutes) {
+		ZonedDateTime now = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
 		ZonedDateTime endTime = now.plusHours(2);
 
 		StringBuilder jsonBuilder = new StringBuilder();
 		jsonBuilder.append("{ \"result\": { \"rates\": [");
 
-		for (ZonedDateTime time = now; time.isBefore(endTime); time = time.plusHours(1)) {
+		for (ZonedDateTime time = now; time.isBefore(endTime); time = time.plusMinutes(minutes)) {
 			jsonBuilder.append(String.format("""
 					    { "start": "%s", "end": "%s", "value": %d },
-					""", time, time.plusHours(1), getSolarPredictionValue(time)));
+					""", time.format(formatter), time.plusMinutes(minutes).format(formatter),
+					getSolarPredictionValue(time)));
 		}
 
 		jsonBuilder.setLength(jsonBuilder.length() - 2);

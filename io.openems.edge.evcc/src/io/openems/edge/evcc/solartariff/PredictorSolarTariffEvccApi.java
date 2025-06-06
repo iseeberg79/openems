@@ -32,7 +32,6 @@ public class PredictorSolarTariffEvccApi {
 	private static final Logger log = LoggerFactory.getLogger(PredictorSolarTariffEvccApi.class);
 	private BridgeHttp httpBridge;
 	private String apiUrl;
-	private Clock clock;
 	private Prediction prediction;
 	private Integer currentPrediction;
 	private ImmutableSortedMap<ZonedDateTime, Integer> solarData = ImmutableSortedMap.of();
@@ -57,13 +56,11 @@ public class PredictorSolarTariffEvccApi {
 	public PredictorSolarTariffEvccApi() {
 		this.httpBridge = null;
 		this.apiUrl = "";
-		this.clock = null;
 	}
 
 	public PredictorSolarTariffEvccApi(String apiUrl, BridgeHttp httpBridge, Clock clock) {
 		this.apiUrl = apiUrl;
 		this.httpBridge = httpBridge;
-		this.clock = clock;
 		this.httpBridge.subscribeTime(new SolarTariffProvider(), this::createEndpoint, this::handleResponse,
 				this::handleError);
 	}
@@ -80,8 +77,8 @@ public class PredictorSolarTariffEvccApi {
 
 	private void handleResponse(HttpResponse<String> response) throws IOException {
 		if (response.status().isSuccessful()) {
+			log.info("Received response from Solar Forecast API.");
 			try {
-				log.info("Received response from Solar Forecast API.");
 				log.debug("Raw API Response: {}", response.data());
 				this.prediction = this.parsePrediction(response.data());
 				this.currentPrediction = this.prediction.getFirst().intValue();
@@ -175,9 +172,10 @@ public class PredictorSolarTariffEvccApi {
 		this.solarData = this.parseJson(jsonData);
 		log.debug("Parsed solar data: {}", this.solarData);
 
-		LocalDateTime localCurrentHour = LocalDateTime.now(this.clock).withSecond(0).withNano(0).withMinute(0);
-		ZoneId zoneId = ZoneId.of("UTC");
-		ZonedDateTime currentHour = localCurrentHour.atZone(zoneId);
+		LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
+		ZoneId localZone = ZoneId.systemDefault();
+		ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
+		ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
 
 		var values = new Integer[192];
 		int i = 0;
@@ -190,7 +188,7 @@ public class PredictorSolarTariffEvccApi {
 
 		Prediction prediction = Prediction.from(currentHour, values);
 
-		log.debug("Calculated prediction: {}", prediction);
+		log.debug("parsed prediction: {}", prediction);
 
 		return prediction;
 	}
@@ -229,15 +227,6 @@ public class PredictorSolarTariffEvccApi {
 	 */
 	public void setApiUrl(String apiUrl) {
 		this.apiUrl = apiUrl;
-	}
-
-	/**
-	 * Sets the clock for handling time-based calculations.
-	 *
-	 * @param clock the Clock instance to be used.
-	 */
-	public void setClock(Clock clock) {
-		this.clock = clock;
 	}
 
 }

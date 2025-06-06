@@ -2,6 +2,7 @@ package io.openems.edge.evcc.gridtariff;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -76,9 +77,10 @@ public class TimeOfUseGridTariffEvccApi {
 			// Preserve prices only if they contain valid future timestamps
 			ZonedDateTime now = ZonedDateTime.now();
 			ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
+			ZonedDateTime utcTime = lastFullHour.withZoneSameInstant(ZoneId.of("UTC"));
 
-			if (!newPrices.isEmpty() && (newPrices.getFirstTime().isEqual(lastFullHour)
-					|| newPrices.getFirstTime().isAfter(lastFullHour))) {
+			if (!newPrices.isEmpty()
+					&& (newPrices.getFirstTime().isEqual(utcTime) || newPrices.getFirstTime().isAfter(utcTime))) {
 				this.prices.set(newPrices);
 			} else {
 				this.prices.set(TimeOfUsePrices.EMPTY_PRICES); // No valid entries left, reset state
@@ -132,6 +134,7 @@ public class TimeOfUseGridTariffEvccApi {
 
 				String startString = JsonUtils.getAsString(element, "start");
 				ZonedDateTime startTime = ZonedDateTime.parse(startString);
+				ZonedDateTime utcTime = startTime.withZoneSameInstant(ZoneId.of("UTC"));
 
 				if (duration < 0) {
 					String endString = JsonUtils.getAsString(element, "end");
@@ -142,17 +145,17 @@ public class TimeOfUseGridTariffEvccApi {
 
 				switch ((int) duration) {
 				case 60:
-					result.put(startTime, value);
-					result.put(startTime.plusMinutes(15), value);
-					result.put(startTime.plusMinutes(30), value);
-					result.put(startTime.plusMinutes(45), value);
+					result.put(utcTime, value);
+					result.put(utcTime.plusMinutes(15), value);
+					result.put(utcTime.plusMinutes(30), value);
+					result.put(utcTime.plusMinutes(45), value);
 					break;
 				case 30:
-					result.put(startTime, value);
-					result.put(startTime.plusMinutes(15), value);
+					result.put(utcTime, value);
+					result.put(utcTime.plusMinutes(15), value);
 					break;
 				case 15:
-					result.put(startTime, value);
+					result.put(utcTime, value);
 					break;
 				default:
 					log.error("Unexpected duration for rate: {} minutes", duration);
@@ -160,7 +163,10 @@ public class TimeOfUseGridTariffEvccApi {
 				}
 			}
 
-			return TimeOfUsePrices.from(result.build());
+			TimeOfUsePrices prices = TimeOfUsePrices.from(result.build());
+			log.debug("parsedPrices: {} ", prices);
+
+			return prices;
 		} catch (Exception e) {
 			log.error("Failed to parse API data", e);
 			return TimeOfUsePrices.EMPTY_PRICES;
