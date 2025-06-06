@@ -154,8 +154,25 @@ public class PredictorSolarTariffEvccApi {
 		return result.build();
 	}
 
+	/**
+	 * Parses the JSON response from the solar tariff API and generates a
+	 * prediction.
+	 *
+	 * <p>
+	 * The method extracts solar production data from the provided JSON string,
+	 * aligns the values with the current time, and converts the data into a
+	 * prediction format. The prediction consists of values mapped to 15-minute
+	 * intervals for accurate forecasting.
+	 * </p>
+	 *
+	 * @param jsonData the JSON string containing solar tariff rates.
+	 * @return a {@link Prediction} object representing the processed solar tariff
+	 *         forecast.
+	 * @throws OpenemsNamedException if the JSON parsing fails or contains invalid
+	 *                               data.
+	 */
 	public Prediction parsePrediction(String jsonData) throws OpenemsNamedException {
-		this.solarData = parseJson(jsonData);
+		this.solarData = this.parseJson(jsonData);
 		log.debug("Parsed solar data: {}", this.solarData);
 
 		LocalDateTime localCurrentHour = LocalDateTime.now(this.clock).withSecond(0).withNano(0).withMinute(0);

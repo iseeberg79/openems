@@ -70,27 +70,48 @@ public class TimeOfUseGridTariffEvccApi {
 	}
 
 	private void handleResponse(HttpResponse<String> response) throws IOException {
-	    if (response.status().isSuccessful()) {
-	        TimeOfUsePrices newPrices = this.parsePrices(response.data());
+		if (response.status().isSuccessful()) {
+			TimeOfUsePrices newPrices = this.parsePrices(response.data());
 
-	        // Preserve prices only if they contain valid future timestamps
-	        ZonedDateTime now = ZonedDateTime.now();
-	        ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
+			// Preserve prices only if they contain valid future timestamps
+			ZonedDateTime now = ZonedDateTime.now();
+			ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
 
-	        if (!newPrices.isEmpty() && (newPrices.getFirstTime().isEqual(lastFullHour) || newPrices.getFirstTime().isAfter(lastFullHour))) {
-	            this.prices.set(newPrices);
-	        } else {
-	            this.prices.set(TimeOfUsePrices.EMPTY_PRICES); // No valid entries left, reset state
-	        }
-	    } else {
-	        log.warn("API request failed. Retaining last known valid prices.");
-	    }
+			if (!newPrices.isEmpty() && (newPrices.getFirstTime().isEqual(lastFullHour)
+					|| newPrices.getFirstTime().isAfter(lastFullHour))) {
+				this.prices.set(newPrices);
+			} else {
+				this.prices.set(TimeOfUsePrices.EMPTY_PRICES); // No valid entries left, reset state
+			}
+		} else {
+			log.warn("API request failed. Retaining last known valid prices.");
+		}
 	}
 
 	private void handleError(HttpError error) {
 		log.error("HTTP Error: {}", error.getMessage());
 	}
 
+	/**
+	 * Parses the JSON response from the grid tariff API and converts it into a
+	 * structured {@link TimeOfUsePrices} object.
+	 *
+	 * <p>
+	 * The method extracts pricing data from the JSON string, processes time
+	 * intervals, and normalizes prices based on predefined duration segments (15,
+	 * 30, or 60 minutes).
+	 * </p>
+	 *
+	 * <p>
+	 * If the provided JSON data lacks both "price" and "value" fields, the method
+	 * returns {@link TimeOfUsePrices#EMPTY_PRICES}. In case of a parsing error, an
+	 * empty result is also returned.
+	 * </p>
+	 *
+	 * @param jsonData the JSON string containing time-of-use tariff rates.
+	 * @return a {@link TimeOfUsePrices} object representing the parsed pricing
+	 *         data.
+	 */
 	public TimeOfUsePrices parsePrices(String jsonData) {
 		try {
 			var result = ImmutableSortedMap.<ZonedDateTime, Double>naturalOrder();
