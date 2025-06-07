@@ -75,7 +75,19 @@ public class PredictorSolarTariffEvccApi {
 		log.error("HTTP Error: {}", error.getMessage());
 	}
 
-	private void handleResponse(HttpResponse<String> response) throws IOException {
+	/**
+	 * Handles the HTTP response received from the Solar Forecast API.
+	 * <p>
+	 * This method processes the response, extracts the prediction data if
+	 * available, and updates the current prediction accordingly. If the response is
+	 * invalid or the request fails, it sets the prediction to a default empty
+	 * value.
+	 * </p>
+	 *
+	 * @param response The HTTP response received from the API.
+	 * @throws IOException If an error occurs while processing the response.
+	 */
+	public void handleResponse(HttpResponse<String> response) throws IOException {
 		if (response.status().isSuccessful()) {
 			log.info("Received response from Solar Forecast API.");
 			try {
@@ -187,6 +199,9 @@ public class PredictorSolarTariffEvccApi {
 		}
 
 		Prediction prediction = Prediction.from(currentHour, values);
+		if (prediction.asArray().length == 0) {
+			log.warn("no future values retrieved");
+		}
 
 		log.debug("parsed prediction: {}", prediction);
 
