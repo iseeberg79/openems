@@ -84,7 +84,7 @@ public class TimeOfUseGridTariffEvccImpl extends AbstractOpenemsComponent
 	 */
 	public TimeOfUsePrices getPrices() {
 		if (this.apiClient != null) {
-			return apiClient.getPrices();
+			return this.apiClient.getPrices();
 		}
 		return TimeOfUsePrices.EMPTY_PRICES;
 	}
