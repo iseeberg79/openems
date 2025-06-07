@@ -1,6 +1,8 @@
 package io.openems.edge.evcc.gridtariff;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -70,24 +72,41 @@ public class TimeOfUseGridTariffEvccApi {
 		return Map.of("Accept", "application/json");
 	}
 
-	private void handleResponse(HttpResponse<String> response) throws IOException {
+	/**
+	 * Handles the HTTP response received from an API that provides time-of-use
+	 * prices.
+	 * <p>
+	 * This method processes the response by parsing the price data, ensuring it
+	 * contains future timestamps, and updating the stored price information
+	 * accordingly. If the API request fails or no valid prices are retrieved, it
+	 * retains the last known valid prices.
+	 * </p>
+	 *
+	 * @param response The HTTP response containing price data.
+	 * @throws IOException If an error occurs while processing the response.
+	 */
+	public void handleResponse(HttpResponse<String> response) throws IOException {
 		if (response.status().isSuccessful()) {
+			log.debug("prices retrieved, parsing");
 			TimeOfUsePrices newPrices = this.parsePrices(response.data());
 
-			// Preserve prices only if they contain valid future timestamps
-			ZonedDateTime now = ZonedDateTime.now();
-			ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
-			ZonedDateTime utcTime = lastFullHour.withZoneSameInstant(ZoneId.of("UTC"));
+			// prices parsed and not empty
+			if (!newPrices.isEmpty()) {
+				ZonedDateTime now = ZonedDateTime.now();
+				ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
+				ZonedDateTime utcTime = lastFullHour.withZoneSameInstant(ZoneId.of("UTC"));
+				newPrices = TimeOfUsePrices.from(utcTime, newPrices);
 
-			if (!newPrices.isEmpty()
-					&& (newPrices.getFirstTime().isEqual(utcTime) || newPrices.getFirstTime().isAfter(utcTime))) {
-				this.prices.set(newPrices);
-			} else {
-				this.prices.set(TimeOfUsePrices.EMPTY_PRICES); // No valid entries left, reset state
+				// replace already known prices if they contain future timestamps
+				if (!newPrices.isEmpty()) {
+					this.prices.set(newPrices);
+					log.debug("prices retrieved successfully");
+					return;
+				}
 			}
-		} else {
-			log.warn("API request failed. Retaining last known valid prices.");
+			log.warn("retrieved no future prices");
 		}
+		log.warn("API request failed. Retaining last known valid prices.");
 	}
 
 	private void handleError(HttpError error) {
@@ -130,7 +149,8 @@ public class TimeOfUseGridTariffEvccApi {
 					return TimeOfUsePrices.EMPTY_PRICES;
 				}
 
-				double value = optionalPrice.orElseGet(() -> optionalValue.get()) * 1000;
+				double value = new BigDecimal((optionalPrice.orElseGet(() -> optionalValue.get()) * 1000))
+						.setScale(3, RoundingMode.HALF_UP).doubleValue();
 
 				String startString = JsonUtils.getAsString(element, "start");
 				ZonedDateTime startTime = ZonedDateTime.parse(startString);
@@ -179,7 +199,10 @@ public class TimeOfUseGridTariffEvccApi {
 	 * @return the TimeOfUsePrices object containing tariff information.
 	 */
 	public TimeOfUsePrices getPrices() {
-		return this.prices.get();
+		ZonedDateTime utcTime = ZonedDateTime.now().withZoneSameInstant(ZoneId.of("UTC"));
+		TimeOfUsePrices prices = TimeOfUsePrices.from(utcTime, this.prices.get());
+		log.debug("Prices: {}", prices);
+		return prices;
 	}
 
 	/**

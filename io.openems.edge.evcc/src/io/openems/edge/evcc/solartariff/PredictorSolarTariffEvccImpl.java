@@ -7,8 +7,6 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.metatype.annotations.Designate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.types.ChannelAddress;
@@ -30,8 +28,6 @@ import io.openems.edge.predictor.api.prediction.Predictor;
 )
 
 public class PredictorSolarTariffEvccImpl extends AbstractPredictor implements Predictor, OpenemsComponent {
-
-	private final Logger log = LoggerFactory.getLogger(PredictorSolarTariffEvccImpl.class);
 
 	private final String[] channelAdresses = { "_sum/ProductionActivePower" };
 

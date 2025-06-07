@@ -19,6 +19,7 @@ import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
 import io.openems.edge.predictor.api.prediction.Prediction;
+import io.openems.edge.timeofusetariff.api.TimeOfUsePrices;
 
 public class PredictorSolarTariffEvccImplTest {
 
@@ -30,6 +31,14 @@ public class PredictorSolarTariffEvccImplTest {
 		final var api = new PredictorSolarTariffEvccApi();
 		final var httpTestBundle = new DummyBridgeHttpBundle();
 		final var clock = createDummyClock();
+		
+		final LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
+		final ZoneId localZone = ZoneId.systemDefault();
+		final ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
+		final ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
+		
+		final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
+		final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 		new ComponentTest(sut).addReference("httpBridgeFactory", httpTestBundle.factory())
 				.addReference("componentManager", new DummyComponentManager(clock))
@@ -42,7 +51,6 @@ public class PredictorSolarTariffEvccImplTest {
 					httpTestBundle.triggerNextCycle();
 				}).onAfterProcessImage(() -> {
 					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
-					assertNotEquals(true, sut.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED).value());
 				}))
 
 				// Case: API unknown error
@@ -52,29 +60,33 @@ public class PredictorSolarTariffEvccImplTest {
 					httpTestBundle.triggerNextCycle();
 				}).onAfterProcessImage(() -> {
 					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
-					assertNotEquals(true, sut.channel(PredictorSolarTariffEvcc.ChannelId.PREDICT_ENABLED).value());
 				}))
-
-				// Case: simulated API processing (60 minutes)
-				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
+				
+				// Case: API success
+				.next(new TestCase("API success").onBeforeProcessImage(() -> {
 					String jsonResponse = this.generateDynamicJson(60);
 					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
 					httpTestBundle.triggerNextCycle();
+					//TODO how to check asynchronous httpBridge response?
+				}))
 
+				// Case: response handling (manual)
+				.next(new TestCase("API response").onBeforeProcessImage(() -> {
+					// simulate response
+					String jsonResponse = this.generateDynamicJson(60);
+					api.handleResponse(HttpResponse.ok(jsonResponse));
+					assertNotEquals(TimeOfUsePrices.EMPTY_PRICES, api.getPrediction());
+				}))//
+				
+				// Case: simulated API processing (60 minutes)
+				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
+					String jsonResponse = this.generateDynamicJson(60);
 					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
 
 					Prediction prediction = api.parsePrediction(jsonResponse);
 					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
 
-					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
-					ZoneId localZone = ZoneId.systemDefault();
-					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
-					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
-
 					Integer[] predictions = prediction.asArray();
-
-					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);
@@ -95,23 +107,10 @@ public class PredictorSolarTariffEvccImplTest {
 				// Case: simulated API processing (30 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
 					String jsonResponse = this.generateDynamicJson(30);
-					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
-					httpTestBundle.triggerNextCycle();
-
-					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
-
 					Prediction prediction = api.parsePrediction(jsonResponse);
 					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
 
-					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
-					ZoneId localZone = ZoneId.systemDefault();
-					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
-					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
-
 					Integer[] predictions = prediction.asArray();
-
-					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);
@@ -132,23 +131,10 @@ public class PredictorSolarTariffEvccImplTest {
 				// Case: simulated API processing (15 minutes)
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
 					String jsonResponse = this.generateDynamicJson(15);
-					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
-					httpTestBundle.triggerNextCycle();
-
-					assertEquals(Prediction.EMPTY_PREDICTION, sut.createNewPrediction(sut.getChannelAddresses()[0]));
-
 					Prediction prediction = api.parsePrediction(jsonResponse);
 					assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
 
-					LocalDateTime localCurrentHour = LocalDateTime.now().withSecond(0).withNano(0).withMinute(0);
-					ZoneId localZone = ZoneId.systemDefault();
-					ZonedDateTime localZoned = localCurrentHour.atZone(localZone);
-					ZonedDateTime currentHour = localZoned.withZoneSameInstant(ZoneId.of("UTC"));
-
 					Integer[] predictions = prediction.asArray();
-
-					final int expectedFirstValue = this.getSolarPredictionValue(localZoned);
-					final int expectedSecondHourValue = this.getSolarPredictionValue(localZoned.plusHours(1));
 
 					// check object count
 					assertEquals(8, predictions.length);

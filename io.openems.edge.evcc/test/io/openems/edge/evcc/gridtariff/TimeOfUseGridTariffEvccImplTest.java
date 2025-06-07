@@ -6,6 +6,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 
 import org.junit.Test;
 
@@ -29,6 +30,9 @@ public class TimeOfUseGridTariffEvccImplTest {
 		final var clock = createDummyClock();
 		final var dummyMeta = new DummyMeta("foo0") //
 				.withCurrency(EUR);
+
+		// simulate response
+		final ZonedDateTime now = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
 
 		new ComponentTest(sut) //
 				.addReference("httpBridgeFactory", httpTestBundle.factory()) //
@@ -71,57 +75,69 @@ public class TimeOfUseGridTariffEvccImplTest {
 							assertEquals(TimeOfUsePrices.EMPTY_PRICES, sut.getPrices());
 						}))
 
+				// Case: API success
+				.next(new TestCase("API success") //
+						.onBeforeProcessImage(() -> {
+							String jsonResponse = String.format("""
+									    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
+									""", now, now.plusMinutes(60));
+							httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
+							httpTestBundle.triggerNextCycle();
+						}) //
+						.timeleap(clock, 2, ChronoUnit.MINUTES)
+				// TODO how to check asynchronous httpBridge result?
+				)
+
+				// response handling (manual)
+				.next(new TestCase("API response").onBeforeProcessImage(() -> {
+					// simulate response
+					ZonedDateTime past = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
+					String jsonResponseOld = String.format(
+							"""
+									    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2067 },{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
+									""",
+							past.minusMinutes(60), now, now, now.plusMinutes(60));
+
+					// http response parsing
+					api.handleResponse(HttpResponse.ok(jsonResponseOld));
+					assertNotEquals(TimeOfUsePrices.EMPTY_PRICES, api.getPrices());
+				})) //
+
 				// 60 minutes
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					// simulate response
-					ZonedDateTime now = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
 					String jsonResponse = String.format("""
 							    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
 							""", now, now.plusMinutes(60));
-
-					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
-					httpTestBundle.triggerNextCycle();
-					// simulate parsing
 					TimeOfUsePrices prices = api.parsePrices(jsonResponse);
 					assertNotEquals(TimeOfUsePrices.EMPTY_PRICES, prices);
 					assertEquals(prices.asArray().length, 4);
 					assertEquals(256.7, prices.getFirst().doubleValue(), 0.0001);
-				}))//
-				
-				// 30 minnutes
+				})) //
+
+				// 30 minutes
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					// simulate response
-					ZonedDateTime now = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
 					String jsonResponse = String.format("""
 							    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
 							""", now, now.plusMinutes(30));
 
-					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
-					httpTestBundle.triggerNextCycle();
-					// simulate parsing
 					TimeOfUsePrices prices = api.parsePrices(jsonResponse);
 					assertNotEquals(TimeOfUsePrices.EMPTY_PRICES, prices);
 					assertEquals(prices.asArray().length, 2);
 					assertEquals(256.7, prices.getFirst().doubleValue(), 0.0001);
-				}))//
-				
+				})) //
+
 				// 15 minutes
 				.next(new TestCase("Successful API response").onBeforeProcessImage(() -> {
-					// simulate response
-					ZonedDateTime now = ZonedDateTime.now().withMinute(0).withSecond(0).withNano(0);
 					String jsonResponse = String.format("""
 							    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
 							""", now, now.plusMinutes(15));
 
-					httpTestBundle.forceNextSuccessfulResult(HttpResponse.ok(jsonResponse));
-					httpTestBundle.triggerNextCycle();
-					// simulate parsing
 					TimeOfUsePrices prices = api.parsePrices(jsonResponse);
 					assertNotEquals(TimeOfUsePrices.EMPTY_PRICES, prices);
 					assertEquals(prices.asArray().length, 1);
 					assertEquals(256.7, prices.getFirst().doubleValue(), 0.0001);
 				}))//
-				
+
 				.deactivate();
 	}
 }
