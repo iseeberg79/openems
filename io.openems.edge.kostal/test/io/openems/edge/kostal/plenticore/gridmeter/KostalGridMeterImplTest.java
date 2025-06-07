@@ -19,6 +19,7 @@ public class KostalGridMeterImplTest {
 						.setId("meter0") //
 						.setModbusId("modbus0") //
 						.setModbusUnitId(1) //
+						.setViaInverter(true) //
 						.setType(MeterType.GRID) //
 						.build()) //
 				.next(new TestCase()) //

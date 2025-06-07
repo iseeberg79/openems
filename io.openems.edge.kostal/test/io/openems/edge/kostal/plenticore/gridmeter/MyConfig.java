@@ -11,7 +11,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		private String id;
 		private String modbusId;
-		private boolean wordwrap;
 		private boolean inverter;
 		private int modbusUnitId;
 		private MeterType type;
@@ -32,11 +31,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public Builder setModbusUnitId(int modbusUnitId) {
 			this.modbusUnitId = modbusUnitId;
-			return this;
-		}
-
-		public Builder setWordwrap(boolean wordwrap) {
-			this.wordwrap = wordwrap;
 			return this;
 		}
 
@@ -84,11 +78,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public int modbusUnitId() {
 		return this.builder.modbusUnitId;
-	}
-
-	@Override
-	public boolean wordwrap() {
-		return this.builder.wordwrap;
 	}
 
 	@Override
