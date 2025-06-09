@@ -106,13 +106,13 @@ public class TimeOfUseGridTariffEvccImplTest {
 						.onBeforeProcessImage(() -> {
 							// simulate response (includes invalid old data)
 							ZonedDateTime past = ZonedDateTime.now(clock).withMinute(0).withSecond(0).withNano(0);
-							String jsonResponseOld = String.format(
+							final String jsonResponseOld = String.format(
 									"""
 											    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2067 },{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
 											""",
 									past.minusMinutes(60), now, now, now.plusMinutes(60));
 
-							String jsonResponsePast = String.format(
+							final String jsonResponsePast = String.format(
 									"""
 											    { "result": { "rates": [{ "start": "%s", "end": "%s", "value": 0.2067 },{ "start": "%s", "end": "%s", "value": 0.2567 }]}}
 											""",

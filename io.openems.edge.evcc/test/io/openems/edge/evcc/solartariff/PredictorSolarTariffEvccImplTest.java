@@ -60,7 +60,7 @@ public class PredictorSolarTariffEvccImplTest {
 
 		new ComponentTest(sut).addReference("httpBridgeFactory", factory)
 				.addReference("componentManager", new DummyComponentManager(clock)) //
-				.activate( //
+				.activate(//
 						MyConfig.create() //
 								.setId("predictor0") //
 								.setUrl(urlFail) //
@@ -79,7 +79,7 @@ public class PredictorSolarTariffEvccImplTest {
 
 		new ComponentTest(sut).addReference("httpBridgeFactory", factory)
 				.addReference("componentManager", new DummyComponentManager(clock)) //
-				.activate( //
+				.activate(//
 						MyConfig.create() //
 								.setId("predictor0") //
 								.setUrl(url) //
@@ -113,9 +113,6 @@ public class PredictorSolarTariffEvccImplTest {
 				.next(new TestCase("Successful API response") //
 						.timeleap(clock, 6, ChronoUnit.HOURS) //
 						.onBeforeProcessImage(() -> {
-							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
-							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
-
 							assertEquals(Prediction.EMPTY_PREDICTION, api.getPrediction());
 							assertEquals(null, api.getCurrentPrediction());
 
@@ -131,6 +128,7 @@ public class PredictorSolarTariffEvccImplTest {
 							// check first timestamp (in UTC, respecting time leap)
 							assertEquals(currentHour.plusHours(6), prediction.getFirstTime());
 
+							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
 							// check quaterly values
 							assertEquals(expectedFirstValue, predictions[0].intValue());
 							assertEquals(expectedFirstValue, predictions[1].intValue());
@@ -138,15 +136,13 @@ public class PredictorSolarTariffEvccImplTest {
 							assertEquals(expectedFirstValue, predictions[3].intValue());
 
 							// check first value of next hour
+							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
 							assertEquals(expectedSecondHourValue, predictions[4].intValue());
 						})) //
 
 				// Case: simulated API processing (30 minutes)
 				.next(new TestCase("Successful API response") //
 						.onBeforeProcessImage(() -> {
-							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
-							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
-
 							String jsonResponse = this.generateDynamicJson(clock, 30);
 							Prediction prediction = api.parsePrediction(jsonResponse);
 							assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
@@ -159,6 +155,7 @@ public class PredictorSolarTariffEvccImplTest {
 							// check first timestamp (in UTC)
 							assertEquals(currentHour.plusHours(6), prediction.getFirstTime());
 
+							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
 							// check quaterly values
 							assertEquals(expectedFirstValue, predictions[0].intValue());
 							assertEquals(expectedFirstValue, predictions[1].intValue());
@@ -166,15 +163,13 @@ public class PredictorSolarTariffEvccImplTest {
 							assertEquals(expectedFirstValue, predictions[3].intValue());
 
 							// check first value of next hour
+							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
 							assertEquals(expectedSecondHourValue, predictions[4].intValue());
 						})) //
 
 				// Case: simulated API processing (15 minutes)
 				.next(new TestCase("Successful API response") //
 						.onBeforeProcessImage(() -> {
-							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
-							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
-
 							String jsonResponse = this.generateDynamicJson(clock, 15);
 							Prediction prediction = api.parsePrediction(jsonResponse);
 							assertNotEquals(Prediction.EMPTY_PREDICTION, prediction);
@@ -187,6 +182,7 @@ public class PredictorSolarTariffEvccImplTest {
 							// check first timestamp (in UTC)
 							assertEquals(currentHour.plusHours(6), prediction.getFirstTime());
 
+							int expectedFirstValue = this.getSolarPredictionValue(currentHour.plusHours(6));
 							// check quaterly values
 							assertEquals(expectedFirstValue, predictions[0].intValue());
 							assertEquals(expectedFirstValue, predictions[1].intValue());
@@ -194,6 +190,7 @@ public class PredictorSolarTariffEvccImplTest {
 							assertEquals(expectedFirstValue, predictions[3].intValue());
 
 							// check first value of next hour
+							int expectedSecondHourValue = this.getSolarPredictionValue(currentHour.plusHours(7));
 							assertEquals(expectedSecondHourValue, predictions[4].intValue());
 						})) //
 
@@ -265,14 +262,14 @@ public class PredictorSolarTariffEvccImplTest {
 				.next(new TestCase("Successful API response") //
 						.onBeforeProcessImage(() -> {
 							// JSON data
-							String jsonResponseInvalid = String.format(
+							final String jsonResponseInvalid = String.format(
 									"""
 											    { "res": { "rates": [{ "start": "%s", "end": "%s", "value": 100 },{ "start": "%s", "end": "%s", "value": 200 }]}}
 											""",
 									currentHour, currentHour.plusHours(1), currentHour.plusHours(1),
 									currentHour.plusHours(2));
 
-							String jsonResponseInvalidData = String.format(
+							final String jsonResponseInvalidData = String.format(
 									"""
 											    { "result": { "rates": [{ "start": "%s", "end": "%s", "val": 100 },{ "start": "%s", "end": "%s", "val": 200 }]}}
 											""",
@@ -286,7 +283,7 @@ public class PredictorSolarTariffEvccImplTest {
 							assertEquals(Prediction.EMPTY_PREDICTION, prediction);
 							assertNotEquals(Prediction.EMPTY_PREDICTION, api.getPrediction());
 
-							api.parsePrediction(jsonResponseInvalidData);
+							prediction = api.parsePrediction(jsonResponseInvalidData);
 							assertEquals(Prediction.EMPTY_PREDICTION, prediction);
 							assertNotEquals(Prediction.EMPTY_PREDICTION, api.getPrediction());
 

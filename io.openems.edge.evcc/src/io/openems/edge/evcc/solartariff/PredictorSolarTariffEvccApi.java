@@ -195,7 +195,7 @@ public class PredictorSolarTariffEvccApi {
 		this.solarData = this.parseJson(jsonData);
 		log.debug("Parsed solar data: {}", this.solarData);
 
-		ZonedDateTime localCurrentHour = ZonedDateTime.now(clock).withSecond(0).withNano(0).withMinute(0);
+		ZonedDateTime localCurrentHour = ZonedDateTime.now(this.clock).withSecond(0).withNano(0).withMinute(0);
 		ZonedDateTime utcHour = localCurrentHour.withZoneSameInstant(ZoneId.of("UTC"));
 
 		var values = new Integer[192];
