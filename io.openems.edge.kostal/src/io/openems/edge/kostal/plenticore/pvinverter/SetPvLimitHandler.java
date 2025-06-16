@@ -10,6 +10,7 @@ import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.function.ThrowingRunnable;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.IntegerWriteChannel;
+import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.kostal.plenticore.pvinverter.KostalPvInverter.ChannelId;
 import io.openems.edge.pvinverter.api.ManagedSymmetricPvInverter;
 
@@ -29,15 +30,21 @@ public class SetPvLimitHandler implements ThrowingRunnable<OpenemsNamedException
 
 	@Override
 	public void run() throws OpenemsNamedException {
-		IntegerReadChannel maxPowerChannel = this.parent
-				.channel(ManagedSymmetricPvInverter.ChannelId.MAX_APPARENT_POWER);
-		int maxPower = maxPowerChannel.value().get();
-
 		IntegerWriteChannel channel = this.parent.channel(this.channelId);
 		var powerOpt = channel.getNextWriteValueAndReset();
 
 		int pLimitPerc;
 		int power;
+
+		IntegerReadChannel maxPowerChannel = this.parent
+				.channel(ManagedSymmetricPvInverter.ChannelId.MAX_APPARENT_POWER);
+		Value<Integer> value = maxPowerChannel.value();
+		if (value == null || value.get() == null) {
+			// not initialized yet
+			return;
+		}
+		int maxPower = value.get();
+
 		if (powerOpt.isPresent()) {
 			power = powerOpt.get();
 			pLimitPerc = (int) ((double) power / (double) maxPower * 100.0);
@@ -50,9 +57,18 @@ public class SetPvLimitHandler implements ThrowingRunnable<OpenemsNamedException
 				pLimitPerc = 0;
 			}
 		} else {
-			// Reset limit
+			// reset limit
 			power = maxPower;
 			pLimitPerc = 100;
+		}
+
+		if (this.parent.config.readOnly()) {
+			power = maxPower;
+			pLimitPerc = 100;
+			// ensure reset of limits
+			if (this.lastPLimitPerc == null && Objects.equals(this.lastPLimitPerc, pLimitPerc)) {
+				return;
+			}
 		}
 
 		if (!Objects.equals(this.lastPLimitPerc, pLimitPerc) ||

@@ -31,8 +31,8 @@ import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
-import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
+import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
@@ -69,6 +69,8 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 	@Reference
 	private ConfigurationAdmin cm;
 
+	protected Config config;
+
 	private final CalculateEnergyFromPower calculateProductionEnergy = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
 
@@ -95,6 +97,7 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
+		this.config = config;
 		if (super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
 				"Modbus", config.modbus_id())) {
 			return;
@@ -122,6 +125,10 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		return new ModbusProtocol(this, //
+
+				new FC3ReadRegistersTask(122, Priority.HIGH, //
+						m(KostalPvInverter.ChannelId.PV_EVU_LIMIT_PERCENT,
+								new FloatDoublewordElement(122).wordOrder(LSWMSW))), //
 
 				new FC3ReadRegistersTask(152, Priority.HIGH, //
 						m(ElectricityMeter.ChannelId.FREQUENCY, new FloatDoublewordElement(152).wordOrder(LSWMSW),
@@ -154,11 +161,11 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(1066).wordOrder(LSWMSW))), //
 
 				new FC3ReadRegistersTask(40217, Priority.HIGH, //
-						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217)), //
-						new DummyRegisterElement(40218, 40220), //
+						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217)),
+						new DummyRegisterElement(40218, 40220),
 						m(KostalPvInverter.ChannelId.PV_LIMIT_ENABLED, new UnsignedWordElement(40221))), //
 
-				new FC16WriteRegistersTask(40217,
+				new FC6WriteRegisterTask(40217,
 						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217))));
 
 	}
