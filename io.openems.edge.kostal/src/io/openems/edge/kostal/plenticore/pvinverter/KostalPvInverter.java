@@ -25,6 +25,12 @@ public interface KostalPvInverter extends ElectricityMeter, OpenemsComponent, Mo
 		 */
 		PV_LIMIT_MAX_PERCENT(Doc.of(INTEGER) //
 				.unit(PERCENT)),
+
+		/**
+		 * Sets the current PV inverter (feed-in) limit as a percentage.
+		 */
+		SET_PV_LIMIT_MAX_PERCENT(Doc.of(INTEGER) //
+				.unit(PERCENT)),
 		
 		/**
 		 * Is the PV inverter (feed-in) limit active

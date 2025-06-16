@@ -159,7 +159,7 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 						m(KostalPvInverter.ChannelId.PV_LIMIT_ENABLED, new UnsignedWordElement(40221))), //
 
 				new FC16WriteRegistersTask(40217,
-						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217))));
+						m(KostalPvInverter.ChannelId.SET_PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217))));
 
 	}
 

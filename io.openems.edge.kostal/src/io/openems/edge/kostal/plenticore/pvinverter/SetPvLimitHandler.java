@@ -62,7 +62,7 @@ public class SetPvLimitHandler implements ThrowingRunnable<OpenemsNamedException
 
 			// value needs to be set
 			this.parent.logInfo(this.log, "Apply new limit: " + power + " W (" + pLimitPerc + " %)");
-			IntegerWriteChannel pLimitPercCh = this.parent.channel(ChannelId.PV_LIMIT_MAX_PERCENT);
+			IntegerWriteChannel pLimitPercCh = this.parent.channel(ChannelId.SET_PV_LIMIT_MAX_PERCENT);
 			pLimitPercCh.setNextWriteValue(pLimitPerc);
 
 			this.lastPLimitPerc = pLimitPerc;
