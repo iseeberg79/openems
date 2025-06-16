@@ -2,7 +2,6 @@ package io.openems.edge.kostal.plenticore.pvinverter;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
-import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -19,18 +18,23 @@ import org.osgi.service.event.EventHandler;
 import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.openems.common.channel.AccessMode;
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.MeterType;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
+import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.taskmanager.Priority;
@@ -49,10 +53,18 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 				"type=PRODUCTION" //
 		})
 @EventTopics({ //
-		TOPIC_CYCLE_AFTER_PROCESS_IMAGE })
+		EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE, //
+		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
+})
+
 public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 		implements KostalPvInverter, ManagedSymmetricPvInverter, ElectricityMeter, ModbusComponent, OpenemsComponent,
 		ModbusSlave, EventHandler, TimedataProvider {
+
+	private final Logger log = LoggerFactory.getLogger(KostalPvInverterImpl.class);
+
+	private final SetPvLimitHandler setPvLimitHandler = new SetPvLimitHandler(this,
+			ManagedSymmetricPvInverter.ChannelId.ACTIVE_POWER_LIMIT);
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -75,7 +87,6 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 				OpenemsComponent.ChannelId.values(), //
 				ModbusComponent.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
-				// EssDcCharger.ChannelId.values(),
 				ManagedSymmetricPvInverter.ChannelId.values(), //
 				KostalPvInverter.ChannelId.values() //
 		);
@@ -98,6 +109,13 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	@Deactivate
 	protected void deactivate() {
+		try {
+			// reset limit
+			this.setActivePowerLimit(null);
+			this.setPvLimitHandler.run();
+		} catch (OpenemsNamedException e) {
+			this.logError(this.log, e.getMessage());
+		}
 		super.deactivate();
 	}
 
@@ -112,14 +130,12 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 								SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
 								new FloatDoublewordElement(156).wordOrder(LSWMSW)),
-						// new DummyRegisterElement(156, 157), //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new FloatDoublewordElement(158).wordOrder(LSWMSW),
 								SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L2, new FloatDoublewordElement(160).wordOrder(LSWMSW),
 								SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
 								new FloatDoublewordElement(162).wordOrder(LSWMSW)),
-						// new DummyRegisterElement(162, 163), //
 						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new FloatDoublewordElement(164).wordOrder(LSWMSW),
 								SCALE_FACTOR_3), //
 						m(ElectricityMeter.ChannelId.CURRENT_L3, new FloatDoublewordElement(166).wordOrder(LSWMSW),
@@ -135,8 +151,15 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 						m(ManagedSymmetricPvInverter.ChannelId.MAX_APPARENT_POWER, new UnsignedWordElement(531))), //
 
 				new FC3ReadRegistersTask(1066, Priority.HIGH, //
-						m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-								new FloatDoublewordElement(1066).wordOrder(LSWMSW))));
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(1066).wordOrder(LSWMSW))), //
+
+				new FC3ReadRegistersTask(40217, Priority.HIGH, //
+						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217)), //
+						new DummyRegisterElement(40218, 40220), //
+						m(KostalPvInverter.ChannelId.PV_LIMIT_ENABLED, new UnsignedWordElement(40221))), //
+
+				new FC16WriteRegistersTask(40217,
+						m(KostalPvInverter.ChannelId.PV_LIMIT_MAX_PERCENT, new UnsignedWordElement(40217))));
 
 	}
 
@@ -174,8 +197,16 @@ public class KostalPvInverterImpl extends AbstractOpenemsModbusComponent
 			return;
 		}
 		switch (event.getTopic()) {
-		case TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
 			this.calculateProductionEnergy.update(this.getActivePower().get());
+			break;
+		case EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE:
+			try {
+				this.setPvLimitHandler.run();
+				this.channel(KostalPvInverter.ChannelId.PV_LIMIT_FAILED).setNextValue(false);
+			} catch (OpenemsNamedException e) {
+				this.channel(KostalPvInverter.ChannelId.PV_LIMIT_FAILED).setNextValue(true);
+			}
 			break;
 		}
 	}
