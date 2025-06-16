@@ -65,7 +65,8 @@ public class SetPvLimitHandler implements ThrowingRunnable<OpenemsNamedException
 		if (this.parent.config.readOnly()) {
 			power = maxPower;
 			pLimitPerc = 100;
-			if (this.lastPLimitPerc == null) {
+			// ensure reset of limits
+			if (this.lastPLimitPerc == null && Objects.equals(this.lastPLimitPerc, pLimitPerc)) {
 				return;
 			}
 		}
