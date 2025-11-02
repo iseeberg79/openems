@@ -1,8 +1,9 @@
-package io.openems.edge.evcc.gridtariff;
+package io.openems.edge.evcc.loadpoint;
 
 import io.openems.common.test.AbstractComponentConfig;
-import io.openems.edge.evcc.gridtariff.Config;
+import io.openems.edge.evcc.loadpoint.Config;
 import io.openems.edge.predictor.api.prediction.LogVerbosity;
+import io.openems.common.types.MeterType;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {
@@ -10,6 +11,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	protected static class Builder {
 		private String id;
 		private String apiUrl;
+		private int loadpointIndex; 
+		private MeterType meterType; 
 		private LogVerbosity logVerbosity;
 
 		private Builder() {
@@ -24,6 +27,16 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		public Builder setApiUrl(String apiUrl) {
 			this.apiUrl = apiUrl;
 			return this;
+		}
+		
+		public Builder setLoadpointIndex (int loadpointIndex) {
+			this.loadpointIndex = loadpointIndex; 
+			return this; 
+		}
+		
+		public Builder setMeterType (MeterType meterType) {
+			this.meterType = meterType; 
+			return this; 
 		}
 
 		public Builder setLogVerbosity(LogVerbosity logVerbosity) {
@@ -52,14 +65,25 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		this.builder = builder;
 	}
 
+//	@Override
+//	public LogVerbosity logVerbosity() {
+//		return this.builder.logVerbosity;
+//	}
+	
 	@Override
-	public LogVerbosity logVerbosity() {
-		return this.builder.logVerbosity;
+	public MeterType type() {
+		return this.builder.meterType; 
 	}
+	
 
 	@Override
 	public String apiUrl() {
 		return this.builder.apiUrl;
+	}
+	
+	@Override
+	public int loadpointIndex() {
+		return this.builder.loadpointIndex; 
 	}
 
 }
