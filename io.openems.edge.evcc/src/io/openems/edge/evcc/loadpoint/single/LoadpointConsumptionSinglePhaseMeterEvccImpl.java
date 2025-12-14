@@ -39,6 +39,9 @@ import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.api.SinglePhaseMeter;
+import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.OpenemsType;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -66,6 +69,28 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata;
+
+	/**
+	 * State machine for offset-based energy calculation.
+	 * Follows the same pattern as {@link CalculateEnergyFromPower}.
+	 */
+	private static enum EnergyState {
+		TIMEDATA_QUERY_NOT_STARTED, TIMEDATA_QUERY_IS_RUNNING, CALCULATE_ENERGY
+	}
+
+	private EnergyState energyState = EnergyState.TIMEDATA_QUERY_NOT_STARTED;
+
+	/**
+	 * The first chargeTotalImport value received from EVCC (in Wh).
+	 * Used as baseline for calculating energy delta.
+	 */
+	private Long initialTotalImportWh = null;
+
+	/**
+	 * The last known ACTIVE_PRODUCTION_ENERGY value loaded from Timedata.
+	 * Used to continue from the previous value after restart.
+	 */
+	private Long lastKnownProductionEnergy = null;
 
 	/**
 	 * Energy calculator for V2G/export (negative power).
@@ -214,10 +239,11 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 			}
 
 			// Cumulative energy from EVCC meter (kWh -> Wh)
+			// Uses offset-based approach to avoid jumps on restart
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
 				double totalImportKwh = lp.get("chargeTotalImport").getAsDouble();
-				long totalImportWh = Math.round(totalImportKwh * 1000.0);
-				this._setActiveProductionEnergy(totalImportWh);
+				long currentTotalImportWh = Math.round(totalImportKwh * 1000.0);
+				this.updateProductionEnergy(currentTotalImportWh);
 				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CONSUMPTION_ENERGY)
 						.setNextValue(totalImportKwh);
 			}
@@ -306,10 +332,81 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 	}
 
 	/**
+	 * Updates ACTIVE_PRODUCTION_ENERGY using offset-based approach to avoid jumps.
+	 *
+	 * <p>
+	 * Uses a state machine pattern similar to {@link CalculateEnergyFromPower}:
+	 * <ol>
+	 * <li>TIMEDATA_QUERY_NOT_STARTED: Store initial value and start Timedata query</li>
+	 * <li>TIMEDATA_QUERY_IS_RUNNING: Wait for async Timedata response</li>
+	 * <li>CALCULATE_ENERGY: Calculate energy as lastKnown + (current - initial)</li>
+	 * </ol>
+	 *
+	 * @param currentTotalImportWh the current chargeTotalImport value from EVCC in Wh
+	 */
+	private void updateProductionEnergy(long currentTotalImportWh) {
+		switch (this.energyState) {
+		case TIMEDATA_QUERY_NOT_STARTED -> {
+			// Store initial value as baseline
+			this.initialTotalImportWh = currentTotalImportWh;
+
+			// Try to load last known value from Timedata
+			var timedata = this.timedata;
+			var componentId = this.id();
+			if (timedata == null || componentId == null) {
+				// No Timedata available, start from 0
+				this.lastKnownProductionEnergy = 0L;
+				this.energyState = EnergyState.CALCULATE_ENERGY;
+			} else {
+				this.energyState = EnergyState.TIMEDATA_QUERY_IS_RUNNING;
+				timedata.getLatestValue(
+						new ChannelAddress(componentId, ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+						.whenComplete((latestValueOpt, error) -> {
+							if (error != null) {
+								this.lastKnownProductionEnergy = 0L;
+								this.logWarn(this.log, "Timedata query failed, starting from 0: " + error.getMessage());
+							} else if (latestValueOpt.isPresent()) {
+								try {
+									this.lastKnownProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG,
+											latestValueOpt.get());
+									this.logInfo(this.log, "Loaded last known production energy from Timedata: "
+											+ this.lastKnownProductionEnergy + " Wh");
+								} catch (IllegalArgumentException e) {
+									this.lastKnownProductionEnergy = 0L;
+									this.logWarn(this.log,
+											"Failed to parse last known production energy: " + e.getMessage());
+								}
+							} else {
+								this.lastKnownProductionEnergy = 0L;
+								this.logInfo(this.log,
+										"No previous production energy found in Timedata, starting from 0");
+							}
+							this.energyState = EnergyState.CALCULATE_ENERGY;
+						});
+			}
+			// Don't set energy value yet - wait for state machine to progress
+		}
+		case TIMEDATA_QUERY_IS_RUNNING -> {
+			// Wait for async Timedata response - don't set any value yet
+		}
+		case CALCULATE_ENERGY -> {
+			// Calculate delta since startup
+			long deltaWh = currentTotalImportWh - this.initialTotalImportWh;
+
+			// Calculate new energy value
+			long baseEnergy = this.lastKnownProductionEnergy != null ? this.lastKnownProductionEnergy : 0L;
+			long newEnergy = Math.max(0, baseEnergy + deltaWh);
+
+			this._setActiveProductionEnergy(newEnergy);
+		}
+		}
+	}
+
+	/**
 	 * Calculate consumption energy from negative power values.
 	 *
 	 * <p>
-	 * ACTIVE_PRODUCTION_ENERGY is set directly from EVCC's chargeTotalImport meter.
+	 * ACTIVE_PRODUCTION_ENERGY is set via offset-based approach from chargeTotalImport.
 	 * This method only handles the rare case of negative power (V2G/export) which
 	 * would accumulate in ACTIVE_CONSUMPTION_ENERGY.
 	 */
