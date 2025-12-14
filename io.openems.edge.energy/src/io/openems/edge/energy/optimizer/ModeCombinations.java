@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import io.openems.edge.energy.api.handler.EnergyScheduleHandler;
@@ -21,7 +22,37 @@ import io.openems.edge.energy.api.simulation.GlobalOptimizationContext;
  * First {@link ModeCombination} (get via {@link #getDefault()}) is the default
  * of of all ESHs.
  */
-public record ModeCombinations(ImmutableList<ModeCombination> combinations) {
+public record ModeCombinations(ImmutableList<ModeCombination> combinations,
+		ImmutableMap<IntArrayKey, ModeCombination> indexLookup) {
+
+	/**
+	 * Wrapper for int[] to use as HashMap key with proper hashCode/equals.
+	 */
+	public static final class IntArrayKey {
+		private final int[] array;
+		private final int hashCode;
+
+		public IntArrayKey(int[] array) {
+			this.array = array;
+			this.hashCode = Arrays.hashCode(array);
+		}
+
+		@Override
+		public int hashCode() {
+			return this.hashCode;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj instanceof IntArrayKey other) {
+				return Arrays.equals(this.array, other.array);
+			}
+			return false;
+		}
+	}
 
 	public static final ImmutableList<List<String>> INFEASIBLE_COMBINATIONS = ImmutableList.<List<String>>builder() //
 			.add(List.of("Evse.Controller.Single:SURPLUS", "Controller.Ess.Time-Of-Use-Tariff:DELAY_DISCHARGE")) //
@@ -53,11 +84,25 @@ public record ModeCombinations(ImmutableList<ModeCombination> combinations) {
 			int index, //
 			// mode(0) = eshsWithDifferentModes[0],
 			// mode(1) = eshsWithDifferentModes[1], etc.
-			ImmutableList<Mode> modes) {
+			ImmutableList<Mode> modes, //
+			// Pre-computed mode indexes for fast lookup
+			int[] modeIndexes) {
+
+		/**
+		 * Creates a ModeCombination with pre-computed modeIndexes.
+		 *
+		 * @param index the combination index
+		 * @param modes the list of modes
+		 * @return new ModeCombination
+		 */
+		public static ModeCombination of(int index, ImmutableList<Mode> modes) {
+			var indexes = modes.stream().mapToInt(Mode::index).toArray();
+			return new ModeCombination(index, modes, indexes);
+		}
 
 		/**
 		 * Gets the {@link Mode} for {@link EnergyScheduleHandler} at index i.
-		 * 
+		 *
 		 * @param i index
 		 * @return the {@link Mode}
 		 */
@@ -95,13 +140,19 @@ public record ModeCombinations(ImmutableList<ModeCombination> combinations) {
 				return this;
 			}
 
-			var combination = new ModeCombination(this.nextIndex++, ImmutableList.copyOf(modes));
+			var combination = ModeCombination.of(this.nextIndex++, ImmutableList.copyOf(modes));
 			this.combinations.add(combination);
 			return this;
 		}
 
 		public ModeCombinations build() {
-			return new ModeCombinations(ImmutableList.copyOf(this.combinations));
+			var combinationsList = ImmutableList.copyOf(this.combinations);
+			// Build lookup map for O(1) access by mode indexes
+			var lookupBuilder = ImmutableMap.<IntArrayKey, ModeCombination>builder();
+			for (var c : combinationsList) {
+				lookupBuilder.put(new IntArrayKey(c.modeIndexes()), c);
+			}
+			return new ModeCombinations(combinationsList, lookupBuilder.build());
 		}
 	}
 
@@ -197,16 +248,12 @@ public record ModeCombinations(ImmutableList<ModeCombination> combinations) {
 	/**
 	 * Gets the {@link ModeCombination} from the given {@link EnergyScheduleHandler}
 	 * indexes.
-	 * 
+	 *
 	 * @param indexes the indexes
 	 * @return the {@link ModeCombination}
 	 */
 	public ModeCombination getFromModeIndexesOrDefault(int[] indexes) {
-		for (var m : this.combinations) {
-			if (Arrays.equals(m.modes.stream().mapToInt(Mode::index).toArray(), indexes)) {
-				return m;
-			}
-		}
-		return this.getDefault(); // not found
+		var result = this.indexLookup.get(new IntArrayKey(indexes));
+		return result != null ? result : this.getDefault();
 	}
 }

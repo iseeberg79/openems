@@ -9,6 +9,7 @@ import static io.openems.edge.energy.optimizer.SimulationResult.EMPTY_SIMULATION
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 
+import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
@@ -46,31 +47,64 @@ public class Simulator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Simulator.class);
 
+	/**
+	 * Wrapper for int[] schedule to use as cache key with proper hashCode/equals.
+	 */
+	protected static final class ScheduleKey {
+		private final int[] schedule;
+		private final int hashCode;
+
+		public ScheduleKey(int[] schedule) {
+			this.schedule = schedule;
+			this.hashCode = Arrays.hashCode(schedule);
+		}
+
+		public int[] schedule() {
+			return this.schedule;
+		}
+
+		@Override
+		public int hashCode() {
+			return this.hashCode;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj instanceof ScheduleKey other) {
+				return Arrays.equals(this.schedule, other.schedule);
+			}
+			return false;
+		}
+	}
+
 	public final GlobalOptimizationContext goc;
 	public final ModeCombinations modeCombinations;
 
-	protected final LoadingCache<int[], Fitness> cache;
+	protected final LoadingCache<ScheduleKey, Fitness> cache;
 
 	public Simulator(GlobalOptimizationContext goc) {
 		this.goc = goc;
 		this.cache = CacheBuilder.newBuilder() //
 				.maximumSize(10000) // Limit cache to prevent memory leak
 				.recordStats() //
-				.build(new CacheLoader<int[], Fitness>() {
+				.build(new CacheLoader<ScheduleKey, Fitness>() {
 
 					@Override
 					/**
 					 * Simulates a Schedule and calculates the cost.
-					 * 
+					 *
 					 * <p>
 					 * NOTE: do not throw an Exception here, because we use
 					 * {@link LoadingCache#getUnchecked(Object)} below.
-					 * 
-					 * @param schedule the schedule as defined by {@link EshCodec}
+					 *
+					 * @param key the schedule key
 					 * @return the {@link Fitness}
 					 */
-					public Fitness load(final int[] schedule) {
-						return simulate(Simulator.this.goc, Simulator.this.modeCombinations, schedule, null);
+					public Fitness load(final ScheduleKey key) {
+						return simulate(Simulator.this.goc, Simulator.this.modeCombinations, key.schedule(), null);
 					}
 				});
 
@@ -83,15 +117,15 @@ public class Simulator {
 
 	/**
 	 * Simulates a Schedule and calculates the {@link Fitness}.
-	 * 
+	 *
 	 * <p>
 	 * This method internally uses a Cache for schedule {@link Fitness}.
-	 * 
+	 *
 	 * @param schedule the schedule as defined by {@link EshCodec}
 	 * @return the {@link Fitness}
 	 */
 	public Fitness calculateFitness(int[] schedule) {
-		return this.cache.getUnchecked(schedule);
+		return this.cache.getUnchecked(new ScheduleKey(schedule));
 	}
 
 	protected static Fitness simulate(GlobalOptimizationContext goc, ModeCombinations modeCombinations, int[] schedule,
@@ -257,7 +291,7 @@ public class Simulator {
 		var populationSize = fitWithin(10, 50, initialPopulation.population().size() * 2);
 
 		var engine = Engine //
-				.builder(this.cache::getUnchecked, codec) //
+				.builder(schedule -> this.cache.getUnchecked(new ScheduleKey(schedule)), codec) //
 				.selector(//
 						new EliteSelector<IntegerGene, Fitness>(populationSize / 4, //
 								new TournamentSelector<>(3)))
