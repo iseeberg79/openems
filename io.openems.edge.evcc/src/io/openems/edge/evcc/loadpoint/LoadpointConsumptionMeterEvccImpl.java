@@ -34,7 +34,11 @@ import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.TypeUtils;
+import io.openems.edge.evcs.api.Evcs;
+import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
+import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -48,7 +52,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 )
 @EventTopics(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)
 public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvcc
-		implements LoadpointConsumptionMeterEvcc, ElectricityMeter, OpenemsComponent, TimedataProvider, EventHandler {
+		implements LoadpointConsumptionMeterEvcc, Evcs, ElectricityMeter, OpenemsComponent, TimedataProvider, EventHandler {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -63,22 +67,35 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	private volatile Timedata timedata;
 
 	/**
-	 * Energy calculators for both positive and negative power values.
+	 * State machine for offset-based energy calculation.
+	 * Follows the same pattern as {@link CalculateEnergyFromPower}.
+	 */
+	private static enum EnergyState {
+		TIMEDATA_QUERY_NOT_STARTED, TIMEDATA_QUERY_IS_RUNNING, CALCULATE_ENERGY
+	}
+
+	private EnergyState energyState = EnergyState.TIMEDATA_QUERY_NOT_STARTED;
+
+	/**
+	 * The first chargeTotalImport value received from EVCC (in Wh).
+	 * Used as baseline for calculating energy delta.
+	 */
+	private Long initialTotalImportWh = null;
+
+	/**
+	 * The last known ACTIVE_PRODUCTION_ENERGY value loaded from Timedata.
+	 * Used to continue from the previous value after restart.
+	 */
+	private Long lastKnownProductionEnergy = null;
+
+	/**
+	 * Energy calculator for V2G/export (negative power).
 	 *
 	 * <p>
-	 * EVCC loadpoint is a consumption meter that typically reports positive
-	 * ActivePower values (consumption). According to ElectricityMeter API:
-	 * <ul>
-	 * <li>ACTIVE_PRODUCTION_ENERGY = integral over positive ACTIVE_POWER values
-	 * <li>ACTIVE_CONSUMPTION_ENERGY = integral over negative ACTIVE_POWER values
-	 * </ul>
-	 * Both are provided for completeness, though for a wallbox/charging station,
-	 * ACTIVE_PRODUCTION_ENERGY is the primary channel as it accumulates positive
-	 * power (consumption). This ensures compatibility with UI history charts which
-	 * expect consumption meters to use ActiveProductionEnergy.
+	 * ACTIVE_PRODUCTION_ENERGY is set directly from EVCC's chargeTotalImport meter.
+	 * This calculator handles the rare case of negative power (V2G/export) which
+	 * would accumulate in ACTIVE_CONSUMPTION_ENERGY.
 	 */
-	private final CalculateEnergyFromPower calculateProductionEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
 	private final CalculateEnergyFromPower calculateConsumptionEnergy = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY);
 
@@ -109,6 +126,7 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	public LoadpointConsumptionMeterEvccImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
+				Evcs.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
 				LoadpointConsumptionMeterEvcc.ChannelId.values() //
 		);
@@ -123,6 +141,11 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		this.meterType = config.type();
 		this.initializeLoadpointReference(config.loadpointTitle(), config.loadpointIndex());
+
+		this._setChargingType(io.openems.edge.evcs.api.ChargingType.AC);
+		this._setFixedMinimumHardwarePower(config.minChargingPowerW());
+		this._setFixedMaximumHardwarePower(config.maxChargingPowerW());
+		Evcs.addCalculatePowerLimitListeners(this);
 
 		if (this.isEnabled() && this.httpBridgeFactory != null) {
 			this.httpBridge = this.httpBridgeFactory.get();
@@ -165,8 +188,10 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	private void processHttpResult(HttpResponse<JsonElement> result, HttpError error) {
 		if (error != null) {
 			this.logDebug(this.log, error.getMessage());
+			this._setChargingstationCommunicationFailed(true);
 			return;
 		}
+		this._setChargingstationCommunicationFailed(false);
 
 		try {
 			this.logDebug(this.log, "processHttpResult");
@@ -185,26 +210,55 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 
 			int phases = lp.has("phasesActive") ? lp.get("phasesActive").getAsInt() : 0;
 			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).setNextValue(phases);
+			this._setPhases(phases > 0 ? phases : 3);
 
-			// Use double to maintain precision when dividing power across phases
-			double calculatedPower = chargePower;
-			if (phases > 1) {
-				calculatedPower = (double) chargePower / phases;
+			boolean connected = lp.has("connected") && lp.get("connected").getAsBoolean();
+			boolean charging = lp.has("charging") && lp.get("charging").getAsBoolean();
+			// Plug state: 0 = UNPLUGGED, 7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED
+			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).setNextValue(connected ? 7 : 0);
+			if (!connected) {
+				this._setStatus(Status.NOT_READY_FOR_CHARGING);
+			} else if (charging) {
+				this._setStatus(Status.CHARGING);
+			} else {
+				this._setStatus(Status.READY_FOR_CHARGING);
 			}
-
-			// Nutzung des Integrators über die Leistung
-			// Double totalImport = lp.has("chargeTotalImport") ?
-			// lp.get("chargeTotalImport").getAsDouble() : null;
-			//
-			// if (totalImport != null) {
-			// Long consumptionEnergyWh = Math.round(totalImport * 1000.0);
-			// this._setActiveConsumptionEnergy(consumptionEnergyWh);
-			// } else {
-			// this._setActiveConsumptionEnergy((Long) null);
-			// }
 
 			int sessionEnergy = lp.has("sessionEnergy") ? lp.get("sessionEnergy").getAsInt() : 0;
 			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY).setNextValue(sessionEnergy);
+			this._setEnergySession(sessionEnergy);
+
+			// Cumulative energy from EVCC meter (kWh -> Wh)
+			// Uses offset-based approach to avoid jumps on restart
+			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
+				long currentTotalImportWh = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this.updateProductionEnergy(currentTotalImportWh);
+			}
+
+			// Vehicle and mode information
+			if (lp.has("vehicleSoc") && !lp.get("vehicleSoc").isJsonNull()) {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC)
+						.setNextValue((int) Math.round(lp.get("vehicleSoc").getAsDouble()));
+			} else {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).setNextValue(null);
+			}
+
+			if (lp.has("vehicleName") && !lp.get("vehicleName").isJsonNull()) {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME)
+						.setNextValue(lp.get("vehicleName").getAsString());
+			} else {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).setNextValue(null);
+			}
+
+			if (lp.has("mode") && !lp.get("mode").isJsonNull()) {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.MODE)
+						.setNextValue(lp.get("mode").getAsString());
+			}
+
+			if (lp.has("enabled")) {
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ENABLED)
+						.setNextValue(lp.get("enabled").getAsBoolean());
+			}
 
 			if (lp.has("chargeVoltages") && !lp.get("chargeVoltages").isJsonNull()
 				&& lp.get("chargeVoltages").isJsonArray()) {
@@ -239,6 +293,13 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 				this._setVoltageL3(TypeUtils.multiply(voltage, 1000));
 			}
 
+			var voltageL1 = this.getVoltageL1().get();
+			var voltageL2 = this.getVoltageL2().get();
+			var voltageL3 = this.getVoltageL3().get();
+
+			// Power per phase for current estimation fallback
+			double powerPerPhase = phases > 0 ? (double) chargePower / phases : 0;
+
 			if (lp.has("chargeCurrents") && !lp.get("chargeCurrents").isJsonNull()
 				&& lp.get("chargeCurrents").isJsonArray()) {
 				var currents = lp.getAsJsonArray("chargeCurrents");
@@ -264,42 +325,46 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 			} else {
 				this.logDebug(this.log, "chargeCurrents not provided or null – estimating phase current mapping.");
 
-				if (phases > 0) {
-					int currentL1 = (int) (calculatedPower * 1000000 / this.getVoltageL1().get());
+				if (phases > 0 && voltageL1 != null) {
+					int currentL1 = (int) (powerPerPhase * 1000000 / voltageL1);
 					this._setCurrentL1(currentL1);
 				} else {
 					this._setCurrentL1(null);
 				}
 
-				if (phases > 1) {
-					int currentL2 = (int) (calculatedPower * 1000000 / this.getVoltageL2().get());
+				if (phases > 1 && voltageL2 != null) {
+					int currentL2 = (int) (powerPerPhase * 1000000 / voltageL2);
 					this._setCurrentL2(currentL2);
 				} else {
 					this._setCurrentL2(null);
 				}
 
-				if (phases > 2) {
-					int currentL3 = (int) (calculatedPower * 1000000 / this.getVoltageL3().get());
+				if (phases > 2 && voltageL3 != null) {
+					int currentL3 = (int) (powerPerPhase * 1000000 / voltageL3);
 					this._setCurrentL3(currentL3);
 				} else {
 					this._setCurrentL3(null);
 				}
 			}
 
-			if (phases > 0 && this.getVoltageL1() != null && this.getCurrentL1() != null) {
-				this._setActivePowerL1((int) ((long) this.getVoltageL1().get() * this.getCurrentL1().get() / 1000000));
+			var currentL1 = this.getCurrentL1().get();
+			var currentL2 = this.getCurrentL2().get();
+			var currentL3 = this.getCurrentL3().get();
+
+			if (phases > 0 && voltageL1 != null && currentL1 != null) {
+				this._setActivePowerL1((int) ((long) voltageL1 * currentL1 / 1000000));
 			} else {
 				this._setActivePowerL1(null);
 			}
 
-			if (phases > 1 && this.getVoltageL2() != null && this.getCurrentL2() != null) {
-				this._setActivePowerL2((int) ((long) this.getVoltageL2().get() * this.getCurrentL2().get() / 1000000));
+			if (phases > 1 && voltageL2 != null && currentL2 != null) {
+				this._setActivePowerL2((int) ((long) voltageL2 * currentL2 / 1000000));
 			} else {
 				this._setActivePowerL2(null);
 			}
 
-			if (phases > 2 && this.getVoltageL3() != null && this.getCurrentL3() != null) {
-				this._setActivePowerL3((int) ((long) this.getVoltageL3().get() * this.getCurrentL3().get() / 1000000));
+			if (phases > 2 && voltageL3 != null && currentL3 != null) {
+				this._setActivePowerL3((int) ((long) voltageL3 * currentL3 / 1000000));
 			} else {
 				this._setActivePowerL3(null);
 			}
@@ -310,26 +375,90 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	}
 
 	/**
-	 * Calculate energy from power values, splitting positive and negative values.
+	 * Updates ACTIVE_PRODUCTION_ENERGY using offset-based approach to avoid jumps.
 	 *
 	 * <p>
-	 * Positive power values (consumption) are accumulated in ACTIVE_PRODUCTION_ENERGY,
-	 * negative power values (production) are accumulated in ACTIVE_CONSUMPTION_ENERGY.
-	 * For a wallbox/charging station, positive values are expected (consumption only),
-	 * so ACTIVE_PRODUCTION_ENERGY is the primary channel used by UI history charts.
+	 * Uses a state machine pattern similar to {@link CalculateEnergyFromPower}:
+	 * <ol>
+	 * <li>TIMEDATA_QUERY_NOT_STARTED: Store initial value and start Timedata query</li>
+	 * <li>TIMEDATA_QUERY_IS_RUNNING: Wait for async Timedata response</li>
+	 * <li>CALCULATE_ENERGY: Calculate energy as lastKnown + (current - initial)</li>
+	 * </ol>
+	 *
+	 * @param currentTotalImportWh the current chargeTotalImport value from EVCC in Wh
+	 */
+	private void updateProductionEnergy(long currentTotalImportWh) {
+		switch (this.energyState) {
+		case TIMEDATA_QUERY_NOT_STARTED -> {
+			// Store initial value as baseline
+			this.initialTotalImportWh = currentTotalImportWh;
+
+			// Try to load last known value from Timedata
+			var timedata = this.timedata;
+			var componentId = this.id();
+			if (timedata == null || componentId == null) {
+				// No Timedata available, start from 0
+				this.lastKnownProductionEnergy = 0L;
+				this.energyState = EnergyState.CALCULATE_ENERGY;
+			} else {
+				this.energyState = EnergyState.TIMEDATA_QUERY_IS_RUNNING;
+				timedata.getLatestValue(
+						new ChannelAddress(componentId, ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+						.whenComplete((latestValueOpt, error) -> {
+							if (error != null) {
+								this.lastKnownProductionEnergy = 0L;
+								this.logWarn(this.log, "Timedata query failed, starting from 0: " + error.getMessage());
+							} else if (latestValueOpt.isPresent()) {
+								try {
+									this.lastKnownProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG,
+											latestValueOpt.get());
+									this.logInfo(this.log, "Loaded last known production energy from Timedata: "
+											+ this.lastKnownProductionEnergy + " Wh");
+								} catch (IllegalArgumentException e) {
+									this.lastKnownProductionEnergy = 0L;
+									this.logWarn(this.log,
+											"Failed to parse last known production energy: " + e.getMessage());
+								}
+							} else {
+								this.lastKnownProductionEnergy = 0L;
+								this.logInfo(this.log,
+										"No previous production energy found in Timedata, starting from 0");
+							}
+							this.energyState = EnergyState.CALCULATE_ENERGY;
+						});
+			}
+			// Don't set energy value yet - wait for state machine to progress
+		}
+		case TIMEDATA_QUERY_IS_RUNNING -> {
+			// Wait for async Timedata response - don't set any value yet
+		}
+		case CALCULATE_ENERGY -> {
+			// Calculate delta since startup
+			long deltaWh = currentTotalImportWh - this.initialTotalImportWh;
+
+			// Calculate new energy value
+			long baseEnergy = this.lastKnownProductionEnergy != null ? this.lastKnownProductionEnergy : 0L;
+			long newEnergy = Math.max(0, baseEnergy + deltaWh);
+
+			this._setActiveProductionEnergy(newEnergy);
+		}
+		}
+	}
+
+	/**
+	 * Calculate consumption energy from negative power values.
+	 *
+	 * <p>
+	 * ACTIVE_PRODUCTION_ENERGY is set via offset-based approach from chargeTotalImport.
+	 * This method only handles the rare case of negative power (V2G/export)
+	 * which would accumulate in ACTIVE_CONSUMPTION_ENERGY.
 	 */
 	private void calculateEnergy() {
 		final var activePower = this.getActivePower().get();
-		if (activePower == null) {
-			this.calculateProductionEnergy.update(null);
-			this.calculateConsumptionEnergy.update(null);
-		} else if (activePower > 0) {
-			// Positive power = consumption -> accumulate in ACTIVE_PRODUCTION_ENERGY
-			this.calculateProductionEnergy.update(Math.abs(activePower));
+		if (activePower == null || activePower >= 0) {
 			this.calculateConsumptionEnergy.update(0);
 		} else {
-			// Negative power = production -> accumulate in ACTIVE_CONSUMPTION_ENERGY
-			this.calculateProductionEnergy.update(0);
+			// Negative power = production/export -> accumulate in ACTIVE_CONSUMPTION_ENERGY
 			this.calculateConsumptionEnergy.update(Math.abs(activePower));
 		}
 	}
@@ -397,5 +526,10 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	@Override
 	public String debugLog() {
 		return "L:" + this.getActivePower().asString();
+	}
+
+	@Override
+	public boolean isReadOnly() {
+		return true;
 	}
 }
