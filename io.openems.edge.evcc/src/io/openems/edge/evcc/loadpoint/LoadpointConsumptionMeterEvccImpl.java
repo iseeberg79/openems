@@ -37,6 +37,8 @@ import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
+import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -63,6 +65,28 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata;
+
+	/**
+	 * Tracks whether we have received the first chargeTotalImport value from EVCC.
+	 */
+	private boolean initialTotalImportReceived = false;
+
+	/**
+	 * The first chargeTotalImport value received from EVCC (in Wh).
+	 * Used as baseline for calculating energy delta.
+	 */
+	private long initialTotalImportWh = 0;
+
+	/**
+	 * The last known ACTIVE_PRODUCTION_ENERGY value loaded from Timedata.
+	 * Used to continue from the previous value after restart.
+	 */
+	private Long lastKnownProductionEnergy = null;
+
+	/**
+	 * Whether the Timedata query has been initiated.
+	 */
+	private boolean timedataQueryInitiated = false;
 
 	/**
 	 * Energy calculator for V2G/export (negative power).
@@ -190,6 +214,8 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 
 			boolean connected = lp.has("connected") && lp.get("connected").getAsBoolean();
 			boolean charging = lp.has("charging") && lp.get("charging").getAsBoolean();
+			// Plug state: 0 = UNPLUGGED, 7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED
+			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).setNextValue(connected ? 7 : 0);
 			if (!connected) {
 				this._setStatus(Status.NOT_READY_FOR_CHARGING);
 			} else if (charging) {
@@ -203,9 +229,10 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 			this._setEnergySession(sessionEnergy);
 
 			// Cumulative energy from EVCC meter (kWh -> Wh)
+			// Uses offset-based approach to avoid jumps on initial start
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				long totalImportWh = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
-				this._setActiveProductionEnergy(totalImportWh);
+				long currentTotalImportWh = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this.updateProductionEnergy(currentTotalImportWh);
 			}
 
 			// Vehicle and mode information
@@ -345,6 +372,83 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 		} catch (OpenemsNamedException e) {
 			this.log.warn("Failed to parse evcc loadpoint data: {}", e.getMessage());
 		}
+	}
+
+	/**
+	 * Updates ACTIVE_PRODUCTION_ENERGY using offset-based approach to avoid jumps.
+	 *
+	 * <p>
+	 * On first call, stores the initial chargeTotalImport value and loads the last
+	 * known ACTIVE_PRODUCTION_ENERGY from Timedata. Subsequent calls calculate
+	 * energy as: lastKnownEnergy + (currentTotalImport - initialTotalImport).
+	 *
+	 * @param currentTotalImportWh the current chargeTotalImport value from EVCC in Wh
+	 */
+	private void updateProductionEnergy(long currentTotalImportWh) {
+		if (!this.initialTotalImportReceived) {
+			// First value received - store as baseline
+			this.initialTotalImportWh = currentTotalImportWh;
+			this.initialTotalImportReceived = true;
+
+			// Try to load last known value from Timedata
+			this.loadLastKnownEnergyFromTimedata();
+
+			// Don't set energy yet - wait for Timedata response or use 0
+			if (this.lastKnownProductionEnergy == null) {
+				// No Timedata available yet, start from 0
+				this._setActiveProductionEnergy(0L);
+			}
+			return;
+		}
+
+		// Calculate delta since startup
+		long deltaWh = currentTotalImportWh - this.initialTotalImportWh;
+
+		// Calculate new energy value
+		long baseEnergy = this.lastKnownProductionEnergy != null ? this.lastKnownProductionEnergy : 0L;
+		long newEnergy = baseEnergy + deltaWh;
+
+		// Ensure energy never goes negative
+		if (newEnergy < 0) {
+			newEnergy = 0;
+		}
+
+		this._setActiveProductionEnergy(newEnergy);
+	}
+
+	/**
+	 * Loads the last known ACTIVE_PRODUCTION_ENERGY value from Timedata service.
+	 */
+	private void loadLastKnownEnergyFromTimedata() {
+		if (this.timedataQueryInitiated) {
+			return;
+		}
+
+		var timedata = this.timedata;
+		var componentId = this.id();
+		if (timedata == null || componentId == null) {
+			this.lastKnownProductionEnergy = 0L;
+			return;
+		}
+
+		this.timedataQueryInitiated = true;
+		timedata.getLatestValue(
+				new ChannelAddress(componentId, ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+				.thenAccept(latestValueOpt -> {
+					if (latestValueOpt.isPresent()) {
+						try {
+							this.lastKnownProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG, latestValueOpt.get());
+							this.logInfo(this.log, "Loaded last known production energy from Timedata: "
+									+ this.lastKnownProductionEnergy + " Wh");
+						} catch (IllegalArgumentException e) {
+							this.lastKnownProductionEnergy = 0L;
+							this.logWarn(this.log, "Failed to parse last known production energy: " + e.getMessage());
+						}
+					} else {
+						this.lastKnownProductionEnergy = 0L;
+						this.logInfo(this.log, "No previous production energy found in Timedata, starting from 0");
+					}
+				});
 	}
 
 	/**

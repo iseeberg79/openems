@@ -59,6 +59,19 @@ public interface LoadpointConsumptionSinglePhaseMeterEvcc extends SinglePhaseMet
 		 * Whether charging is enabled by EVCC.
 		 */
 		ENABLED(Doc.of(OpenemsType.BOOLEAN) //
+				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * Cable/Plug state for UI compatibility.
+		 *
+		 * <p>
+		 * Values match KEBA CableState enum:
+		 * <ul>
+		 * <li>0 = UNPLUGGED</li>
+		 * <li>7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED (connected)</li>
+		 * </ul>
+		 */
+		PLUG(Doc.of(INTEGER) //
 				.persistencePriority(PersistencePriority.HIGH)) //
 		;
 
