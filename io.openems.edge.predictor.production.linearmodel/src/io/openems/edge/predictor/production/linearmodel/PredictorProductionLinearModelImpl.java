@@ -97,7 +97,7 @@ public class PredictorProductionLinearModelImpl extends AbstractPredictor
 
 		@Override
 		public double minTrainingDataRatio() {
-			return 0.9;
+			return 0.85;
 		}
 
 		private static int daysToQuarters(int days) {
