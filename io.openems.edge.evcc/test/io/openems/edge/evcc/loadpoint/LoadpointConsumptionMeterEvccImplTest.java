@@ -42,13 +42,13 @@ public class LoadpointConsumptionMeterEvccImplTest {
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
-						.setLoadpointTitle("Garage")
+						.setLoadpointTitle("Loadpoint_1")
 						.build());
 
 		// Real EVCC response structure - connected but not charging
 		final String json = """
 				{
-				  "title": "Garage",
+				  "title": "Loadpoint_1",
 				  "mode": "pv",
 				  "charging": false,
 				  "connected": true,
@@ -100,7 +100,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 
 		final String json = """
 				{
-				  "title": "Wallbox",
+				  "title": "Loadpoint_1",
 				  "mode": "now",
 				  "charging": true,
 				  "connected": true,
@@ -165,7 +165,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		// This matches actual EVCC API responses from real installations
 		final String json = """
 				{
-				  "title": "Wallbox",
+				  "title": "Loadpoint_1",
 				  "charging": true,
 				  "connected": true,
 				  "chargePower": 11040,
@@ -219,7 +219,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		// Test 1.4kW single-phase charging
 		String json = """
 				{
-				  "title": "Wallbox",
+				  "title": "Loadpoint_1",
 				  "charging": true,
 				  "connected": true,
 				  "chargePower": 1400,
@@ -236,7 +236,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		// Test 7.2kW 3-phase charging (balanced)
 		json = """
 				{
-				  "title": "Wallbox",
+				  "title": "Loadpoint_1",
 				  "charging": true,
 				  "connected": true,
 				  "chargePower": 7200,
@@ -255,7 +255,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		// Test 4.1kW 2-phase charging (unbalanced)
 		json = """
 				{
-				  "title": "Wallbox",
+				  "title": "Loadpoint_1",
 				  "charging": true,
 				  "connected": true,
 				  "chargePower": 4100,
@@ -294,7 +294,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		// This is realistic - simple chargers don't report per-phase data
 		final String json = """
 				{
-				  "title": "eBikes",
+				  "title": "Loadpoint_2",
 				  "mode": "pv",
 				  "charging": true,
 				  "connected": true,
@@ -344,7 +344,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 
 		final String json = """
 				{
-				  "title": "Garage",
+				  "title": "Loadpoint_1"
 				  "mode": "off",
 				  "charging": false,
 				  "connected": false,
@@ -445,13 +445,13 @@ public class LoadpointConsumptionMeterEvccImplTest {
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
-						.setLoadpointTitle("Garage")
+						.setLoadpointTitle("Loadpoint_1")
 						.build());
 
 		// Real production JSON - 2-phase charging at 7.2kW
 		final String json = """
 				{
-				  "title": "Garage",
+				  "title": "Loadpoint_1",
 				  "mode": "now",
 				  "charging": true,
 				  "connected": true,
@@ -480,7 +480,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 
 		// Verify phases
 		// ACTIVE_PHASES = currently used phases (vehicle limitation)
-		// EVCS.PHASES = hardware configuration (wallbox is 3-phase, defaults to 3 if phasesActive > 0)
+		// EVCS.PHASES = hardware configuration (Loadpoint_1 is 3-phase, defaults to 3 if phasesActive > 0)
 		assertEquals(Integer.valueOf(2), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
 
 		// Verify vehicle info

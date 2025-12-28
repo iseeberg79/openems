@@ -13,7 +13,6 @@ import io.openems.common.types.OptionsEnum;
 public enum PlugState implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"), //
 	UNPLUGGED(0, "Unplugged"), //
-	/** Value 7 matches UI's ChargePlug.PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED */
 	CONNECTED(7, "Connected"); //
 
 	private final int value;
