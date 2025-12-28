@@ -21,13 +21,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
 
-import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.types.MeterType;
 import io.openems.common.bridge.http.api.BridgeHttp;
 import io.openems.common.bridge.http.api.BridgeHttpFactory;
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
 import io.openems.common.bridge.http.api.UrlBuilder;
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.MeterType;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleService;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
@@ -37,8 +39,6 @@ import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
-import io.openems.common.types.ChannelAddress;
-import io.openems.common.types.OpenemsType;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
