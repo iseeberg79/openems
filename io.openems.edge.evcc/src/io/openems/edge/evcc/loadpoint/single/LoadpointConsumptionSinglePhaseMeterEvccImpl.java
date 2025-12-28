@@ -8,6 +8,10 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
@@ -15,8 +19,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
 
+import io.openems.common.bridge.http.api.BridgeHttpFactory;
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
+import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
+import io.openems.edge.timedata.api.Timedata;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.types.MeterType;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -43,6 +50,15 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 		TimedataProvider {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
+
+	@Reference
+	private BridgeHttpFactory httpBridgeFactory;
+
+	@Reference
+	private HttpBridgeCycleServiceDefinition httpBridgeCycleServiceDefinition;
+
+	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	private volatile Timedata timedata;
 
 	private MeterType meterType;
 	private SinglePhase phase;
@@ -242,6 +258,21 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 	@Override
 	protected void setActiveProductionEnergy(Long value) {
 		this._setActiveProductionEnergy(value);
+	}
+
+	@Override
+	protected BridgeHttpFactory getHttpBridgeFactory() {
+		return this.httpBridgeFactory;
+	}
+
+	@Override
+	protected HttpBridgeCycleServiceDefinition getHttpBridgeCycleServiceDefinition() {
+		return this.httpBridgeCycleServiceDefinition;
+	}
+
+	@Override
+	public Timedata getTimedata() {
+		return this.timedata;
 	}
 
 	@Override

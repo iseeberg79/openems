@@ -1,10 +1,6 @@
 package io.openems.edge.evcc.loadpoint;
 
 import org.osgi.service.component.ComponentContext;
-import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
@@ -44,14 +40,8 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponent
 		implements TimedataProvider, EventHandler {
 
-	@Reference
-	protected BridgeHttpFactory httpBridgeFactory;
-
-	@Reference
-	protected HttpBridgeCycleServiceDefinition httpBridgeCycleServiceDefinition;
-
-	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
-	protected volatile Timedata timedata;
+	// Note: @Reference annotations must be in concrete implementations, not abstract classes
+	// Use abstract getters instead
 
 	protected BridgeHttp httpBridge;
 	protected HttpBridgeCycleService cycleService;
@@ -129,9 +119,10 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		super.activate(context, id, alias, enabled);
 		this.initializeLoadpointReference(loadpointTitle, loadpointIndex);
 
-		if (enabled && this.httpBridgeFactory != null) {
-			this.httpBridge = this.httpBridgeFactory.get();
-			this.cycleService = this.httpBridge.createService(this.httpBridgeCycleServiceDefinition);
+		var factory = this.getHttpBridgeFactory();
+		if (enabled && factory != null) {
+			this.httpBridge = factory.get();
+			this.cycleService = this.httpBridge.createService(this.getHttpBridgeCycleServiceDefinition());
 
 			var jqFilter = this.buildLoadpointFilter(loadpointTitle, loadpointIndex);
 			var url = UrlBuilder.parse(apiUrl) //
@@ -147,7 +138,10 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	 */
 	protected void deactivateHttpSubscription() {
 		if (this.httpBridge != null) {
-			this.httpBridgeFactory.unget(this.httpBridge);
+			var factory = this.getHttpBridgeFactory();
+			if (factory != null) {
+				factory.unget(this.httpBridge);
+			}
 			this.httpBridge = null;
 		}
 		super.deactivate();
@@ -218,6 +212,22 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	protected abstract void setActiveProductionEnergy(Long value);
 
 	/**
+	 * Returns the BridgeHttpFactory.
+	 * Note: @Reference annotation must be in concrete implementations.
+	 *
+	 * @return the BridgeHttpFactory
+	 */
+	protected abstract BridgeHttpFactory getHttpBridgeFactory();
+
+	/**
+	 * Returns the HttpBridgeCycleServiceDefinition.
+	 * Note: @Reference annotation must be in concrete implementations.
+	 *
+	 * @return the HttpBridgeCycleServiceDefinition
+	 */
+	protected abstract HttpBridgeCycleServiceDefinition getHttpBridgeCycleServiceDefinition();
+
+	/**
 	 * Initializes the loadpoint reference configuration.
 	 *
 	 * @param title the configured loadpoint title (can be empty)
@@ -277,7 +287,7 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		case TIMEDATA_QUERY_NOT_STARTED -> {
 			this.initialTotalImportWh = currentTotalImportWh;
 
-			var td = this.timedata;
+			var td = this.getTimedata();
 			var componentId = this.id();
 			if (td == null || componentId == null) {
 				this.lastKnownProductionEnergy = 0L;
@@ -377,9 +387,7 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	}
 
 	@Override
-	public Timedata getTimedata() {
-		return this.timedata;
-	}
+	public abstract Timedata getTimedata();
 
 	@Override
 	public String debugLog() {

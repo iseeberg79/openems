@@ -1,5 +1,8 @@
 package io.openems.edge.evcc.loadpoint;
 
+import static io.openems.common.bridge.http.dummy.DummyBridgeHttpFactory.dummyBridgeHttpExecutor;
+import static io.openems.common.bridge.http.dummy.DummyBridgeHttpFactory.dummyEndpointFetcher;
+import static io.openems.common.bridge.http.dummy.DummyBridgeHttpFactory.ofBridgeImpl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -9,6 +12,8 @@ import com.google.gson.JsonParser;
 
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
+import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
+import io.openems.edge.bridge.http.cycle.dummy.DummyCycleSubscriber;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.Status;
@@ -31,6 +36,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -52,7 +59,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 				  "sessionEnergy": 0,
 				  "phasesActive": 1,
 				  "vehicleSoc": 77.27,
-				  "vehicleName": "Model3",
+				  "vehicleName": "EV",
 				  "vehicleRange": 280
 				}
 				""";
@@ -65,7 +72,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(PlugState.CONNECTED.getValue()), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).getNextValue().get());
 		assertEquals(Integer.valueOf(Status.READY_FOR_CHARGING.getValue()), sut.channel(Evcs.ChannelId.STATUS).getNextValue().get());
 		assertEquals(Integer.valueOf(77), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().get()); // Rounded
-		assertEquals("Model3", sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().get());
+		assertEquals("EV", sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().get());
 		assertEquals(Integer.valueOf(1), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
 
 		// Idle currents should be parsed (in mA)
@@ -83,6 +90,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -144,6 +153,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -197,6 +208,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -269,6 +282,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -319,6 +334,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -358,6 +375,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -376,6 +395,8 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		final var sut = new LoadpointConsumptionMeterEvccImpl();
 
 		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
@@ -401,9 +422,86 @@ public class LoadpointConsumptionMeterEvccImplTest {
 	@Test
 	public void testActivation() throws Exception {
 		new ComponentTest(new LoadpointConsumptionMeterEvccImpl())
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
 				.activate(MyConfig.create()
 						.setId(COMPONENT_ID)
 						.setApiUrl("http://evcc:7070/api/state")
 						.build());
+	}
+
+	/**
+	 * Test with real production JSON from actual EVCC installation.
+	 * This is the exact response structure from a real EV charging session.
+	 */
+	@Test
+	public void testRealProductionJsonCharging() throws Exception {
+		final var sut = new LoadpointConsumptionMeterEvccImpl();
+
+		new ComponentTest(sut)
+				.addReference("httpBridgeFactory", ofBridgeImpl(() -> dummyEndpointFetcher(), () -> dummyBridgeHttpExecutor()))
+				.addReference("httpBridgeCycleServiceDefinition", new HttpBridgeCycleServiceDefinition(new DummyCycleSubscriber()))
+				.activate(MyConfig.create()
+						.setId(COMPONENT_ID)
+						.setApiUrl("http://evcc:7070/api/state")
+						.setLoadpointTitle("Garage")
+						.build());
+
+		// Real production JSON - 2-phase charging at 7.2kW
+		final String json = """
+				{
+				  "title": "Garage",
+				  "mode": "now",
+				  "charging": true,
+				  "connected": true,
+				  "enabled": true,
+				  "chargePower": 7253,
+				  "chargeCurrents": [15.661999702453613, 15.423999786376953, 0.01899999938905239],
+				  "chargeTotalImport": 5804.405,
+				  "chargedEnergy": 0,
+				  "sessionEnergy": 0,
+				  "phasesActive": 2,
+				  "vehicleSoc": 77.27,
+				  "vehicleName": "EV",
+				  "vehicleRange": 0
+				}
+				""";
+
+		var jsonElement = JsonParser.parseString(json);
+		sut.processHttpResult(HttpResponse.ok(jsonElement), null);
+
+		// Verify power
+		assertEquals(Integer.valueOf(7253), sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER).getNextValue().get());
+
+		// Verify status
+		assertEquals(Integer.valueOf(Status.CHARGING.getValue()), sut.channel(Evcs.ChannelId.STATUS).getNextValue().get());
+		assertEquals(Integer.valueOf(PlugState.CONNECTED.getValue()), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).getNextValue().get());
+
+		// Verify phases
+		// ACTIVE_PHASES = currently used phases (vehicle limitation)
+		// EVCS.PHASES = hardware configuration (wallbox is 3-phase, defaults to 3 if phasesActive > 0)
+		assertEquals(Integer.valueOf(2), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
+
+		// Verify vehicle info
+		assertEquals(Integer.valueOf(77), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().get());
+		assertEquals("EV", sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().get());
+
+		// Verify currents (in mA) - 2-phase charging
+		assertEquals(Integer.valueOf(15662), sut.channel(ElectricityMeter.ChannelId.CURRENT_L1).getNextValue().get());
+		assertEquals(Integer.valueOf(15424), sut.channel(ElectricityMeter.ChannelId.CURRENT_L2).getNextValue().get());
+		assertEquals(Integer.valueOf(19), sut.channel(ElectricityMeter.ChannelId.CURRENT_L3).getNextValue().get());
+
+		// Verify voltages default to 230V when not provided
+		assertEquals(Integer.valueOf(230000), sut.channel(ElectricityMeter.ChannelId.VOLTAGE_L1).getNextValue().get());
+		assertEquals(Integer.valueOf(230000), sut.channel(ElectricityMeter.ChannelId.VOLTAGE_L2).getNextValue().get());
+		assertEquals(Integer.valueOf(230000), sut.channel(ElectricityMeter.ChannelId.VOLTAGE_L3).getNextValue().get());
+
+		// Verify per-phase power (only L1 and L2 for 2-phase)
+		// L1: 230000mV * 15662mA / 1000000 = 3602W
+		// L2: 230000mV * 15424mA / 1000000 = 3547W
+		assertEquals(Integer.valueOf(3602), sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER_L1).getNextValue().get());
+		assertEquals(Integer.valueOf(3547), sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER_L2).getNextValue().get());
+		// L3 should be null (phases > 2 is false)
+		assertTrue(sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER_L3).getNextValue().asOptional().isEmpty());
 	}
 }

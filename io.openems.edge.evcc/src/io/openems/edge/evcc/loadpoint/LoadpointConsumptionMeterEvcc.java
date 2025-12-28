@@ -36,13 +36,6 @@ public interface LoadpointConsumptionMeterEvcc extends ElectricityMeter, Openems
 				.persistencePriority(PersistencePriority.MEDIUM)),
 
 		/**
-		 * Vehicle battery state of charge.
-		 */
-		VEHICLE_SOC(Doc.of(INTEGER) //
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH)),
-
-		/**
 		 * Name of the connected vehicle.
 		 */
 		VEHICLE_NAME(Doc.of(OpenemsType.STRING) //
