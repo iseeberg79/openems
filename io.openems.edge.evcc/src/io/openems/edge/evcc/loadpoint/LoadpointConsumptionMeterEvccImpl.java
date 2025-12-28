@@ -50,7 +50,7 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 				LoadpointConsumptionMeterEvcc.ChannelId.values() //
 		);
 
-		ElectricityMeter.calculateSumActivePowerFromPhases(this);
+		// Don't use calculateSumActivePowerFromPhases - EVCC provides chargePower directly
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
 		ElectricityMeter.calculateAverageVoltageFromPhases(this);
 	}
@@ -195,9 +195,10 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	}
 
 	private void processCurrents(com.google.gson.JsonObject lp, int phases, int chargePower) {
-		var voltageL1 = this.getVoltageL1().get();
-		var voltageL2 = this.getVoltageL2().get();
-		var voltageL3 = this.getVoltageL3().get();
+		// Use getNextValue() since voltages were just set via setNextValue()
+		var voltageL1 = (Integer) this.channel(ElectricityMeter.ChannelId.VOLTAGE_L1).getNextValue().get();
+		var voltageL2 = (Integer) this.channel(ElectricityMeter.ChannelId.VOLTAGE_L2).getNextValue().get();
+		var voltageL3 = (Integer) this.channel(ElectricityMeter.ChannelId.VOLTAGE_L3).getNextValue().get();
 		double powerPerPhase = phases > 0 ? (double) chargePower / phases : 0;
 
 		if (lp.has("chargeCurrents") && !lp.get("chargeCurrents").isJsonNull()
@@ -242,27 +243,28 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	}
 
 	private void calculatePhasePower(int phases) {
-		var voltageL1 = this.getVoltageL1().get();
-		var voltageL2 = this.getVoltageL2().get();
-		var voltageL3 = this.getVoltageL3().get();
-		var currentL1 = this.getCurrentL1().get();
-		var currentL2 = this.getCurrentL2().get();
-		var currentL3 = this.getCurrentL3().get();
+		// Use getNextValue() since voltages and currents were just set via setNextValue()
+		var voltageL1 = this.channel(ElectricityMeter.ChannelId.VOLTAGE_L1).getNextValue().get();
+		var voltageL2 = this.channel(ElectricityMeter.ChannelId.VOLTAGE_L2).getNextValue().get();
+		var voltageL3 = this.channel(ElectricityMeter.ChannelId.VOLTAGE_L3).getNextValue().get();
+		var currentL1 = this.channel(ElectricityMeter.ChannelId.CURRENT_L1).getNextValue().get();
+		var currentL2 = this.channel(ElectricityMeter.ChannelId.CURRENT_L2).getNextValue().get();
+		var currentL3 = this.channel(ElectricityMeter.ChannelId.CURRENT_L3).getNextValue().get();
 
 		if (phases > 0 && voltageL1 != null && currentL1 != null) {
-			this._setActivePowerL1((int) ((long) voltageL1 * currentL1 / 1000000));
+			this._setActivePowerL1((int) ((long) (Integer) voltageL1 * (Integer) currentL1 / 1000000));
 		} else {
 			this._setActivePowerL1(null);
 		}
 
 		if (phases > 1 && voltageL2 != null && currentL2 != null) {
-			this._setActivePowerL2((int) ((long) voltageL2 * currentL2 / 1000000));
+			this._setActivePowerL2((int) ((long) (Integer) voltageL2 * (Integer) currentL2 / 1000000));
 		} else {
 			this._setActivePowerL2(null);
 		}
 
 		if (phases > 2 && voltageL3 != null && currentL3 != null) {
-			this._setActivePowerL3((int) ((long) voltageL3 * currentL3 / 1000000));
+			this._setActivePowerL3((int) ((long) (Integer) voltageL3 * (Integer) currentL3 / 1000000));
 		} else {
 			this._setActivePowerL3(null);
 		}

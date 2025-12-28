@@ -203,11 +203,11 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 			}
 			this._setCurrent(null);
 		} else {
-			// Estimate current from power
-			var voltage = this.getVoltage().get();
+			// Estimate current from power - use getNextValue() since voltage was just set
+			var voltage = this.channel(ElectricityMeter.ChannelId.VOLTAGE).getNextValue().get();
 			double calculatedPower = phases > 1 ? (double) chargePower / phases : chargePower;
 			if (phases > 0 && voltage != null) {
-				this._setCurrent((int) (calculatedPower * 1000000 / voltage));
+				this._setCurrent((int) (calculatedPower * 1000000 / (Integer) voltage));
 			} else {
 				this._setCurrent(null);
 			}
