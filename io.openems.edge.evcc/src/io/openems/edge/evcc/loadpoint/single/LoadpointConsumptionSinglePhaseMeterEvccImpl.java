@@ -32,6 +32,7 @@ import io.openems.edge.common.type.Phase.SinglePhase;
 import io.openems.edge.evcc.loadpoint.AbstractLoadpointMeterEvcc;
 import io.openems.edge.evcc.loadpoint.PlugState;
 import io.openems.edge.evcs.api.Evcs;
+import io.openems.edge.evcs.api.SocEvcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.api.SinglePhaseMeter;
@@ -46,7 +47,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 )
 @EventTopics(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)
 public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpointMeterEvcc
-		implements LoadpointConsumptionSinglePhaseMeterEvcc, Evcs, SinglePhaseMeter, ElectricityMeter, OpenemsComponent,
+		implements LoadpointConsumptionSinglePhaseMeterEvcc, SocEvcs, Evcs, SinglePhaseMeter, ElectricityMeter, OpenemsComponent,
 		TimedataProvider {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
@@ -67,6 +68,7 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				Evcs.ChannelId.values(), //
+				SocEvcs.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
 				LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.values() //
 		);
@@ -153,10 +155,9 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 
 			// Vehicle info
 			if (lp.has("vehicleSoc") && !lp.get("vehicleSoc").isJsonNull()) {
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.VEHICLE_SOC)
-						.setNextValue((int) Math.round(lp.get("vehicleSoc").getAsDouble()));
+				this._setSoc((int) Math.round(lp.get("vehicleSoc").getAsDouble()));
 			} else {
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.VEHICLE_SOC).setNextValue(null);
+				this._setSoc(null);
 			}
 
 			if (lp.has("vehicleName") && !lp.get("vehicleName").isJsonNull()) {

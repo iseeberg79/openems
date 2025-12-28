@@ -16,6 +16,7 @@ import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
 import io.openems.edge.bridge.http.cycle.dummy.DummyCycleSubscriber;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.evcs.api.Evcs;
+import io.openems.edge.evcs.api.SocEvcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
 
@@ -71,7 +72,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(0), sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER).getNextValue().get());
 		assertEquals(Integer.valueOf(PlugState.CONNECTED.getValue()), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).getNextValue().get());
 		assertEquals(Integer.valueOf(Status.READY_FOR_CHARGING.getValue()), sut.channel(Evcs.ChannelId.STATUS).getNextValue().get());
-		assertEquals(Integer.valueOf(77), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().get()); // Rounded
+		assertEquals(Integer.valueOf(77), sut.channel(SocEvcs.ChannelId.SOC).getNextValue().get()); // Rounded
 		assertEquals("EV", sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().get());
 		assertEquals(Integer.valueOf(1), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
 
@@ -314,7 +315,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(1), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
 
 		// No vehicleSoc for eBike
-		assertTrue(sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().asOptional().isEmpty());
+		assertTrue(sut.channel(SocEvcs.ChannelId.SOC).getNextValue().asOptional().isEmpty());
 
 		// Voltage should default to 230V (230000mV) when not provided
 		assertEquals(Integer.valueOf(230000), sut.channel(ElectricityMeter.ChannelId.VOLTAGE_L1).getNextValue().get());
@@ -363,7 +364,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(Status.NOT_READY_FOR_CHARGING.getValue()), sut.channel(Evcs.ChannelId.STATUS).getNextValue().get());
 
 		// No vehicle info when disconnected
-		assertTrue(sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().asOptional().isEmpty());
+		assertTrue(sut.channel(SocEvcs.ChannelId.SOC).getNextValue().asOptional().isEmpty());
 		assertTrue(sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().asOptional().isEmpty());
 	}
 
@@ -483,7 +484,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(2), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_PHASES).getNextValue().get());
 
 		// Verify vehicle info
-		assertEquals(Integer.valueOf(77), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_SOC).getNextValue().get());
+		assertEquals(Integer.valueOf(77), sut.channel(SocEvcs.ChannelId.SOC).getNextValue().get());
 		assertEquals("EV", sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.VEHICLE_NAME).getNextValue().get());
 
 		// Verify currents (in mA) - 2-phase charging
