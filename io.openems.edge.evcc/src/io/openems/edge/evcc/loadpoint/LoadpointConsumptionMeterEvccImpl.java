@@ -29,6 +29,7 @@ import io.openems.common.types.MeterType;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.TypeUtils;
+import io.openems.edge.evcs.api.DeprecatedEvcs;
 import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.SocEvcs;
 import io.openems.edge.evcs.api.Status;
@@ -44,7 +45,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 )
 @EventTopics(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)
 public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvcc
-		implements LoadpointConsumptionMeterEvcc, SocEvcs, Evcs, ElectricityMeter, OpenemsComponent, TimedataProvider {
+		implements LoadpointConsumptionMeterEvcc, SocEvcs, Evcs, DeprecatedEvcs, ElectricityMeter, OpenemsComponent, TimedataProvider {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -64,12 +65,13 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 				OpenemsComponent.ChannelId.values(), //
 				Evcs.ChannelId.values(), //
 				SocEvcs.ChannelId.values(), //
+				DeprecatedEvcs.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
 				LoadpointConsumptionMeterEvcc.ChannelId.values() //
 		);
 
-		// Don't use calculate* listeners - EVCC provides all values directly
-		// and the listeners would overwrite them with null (they use .get() on current values)
+		// Copy production energy to consumption energy (Keba pattern)
+		DeprecatedEvcs.copyToDeprecatedEvcsChannels(this);
 	}
 
 	@Activate
@@ -136,10 +138,10 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY).setNextValue(sessionEnergy);
 			this._setEnergySession(sessionEnergy);
 
-			// Cumulative energy (offset-based)
+			// Cumulative energy (Keba pattern - set production, listener copies to consumption)
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				long currentTotalImportWh = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
-				this.updateProductionEnergy(currentTotalImportWh);
+				long energyTotal = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this._setActiveProductionEnergy(energyTotal);
 			}
 
 			// Vehicle info
@@ -309,11 +311,6 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	@Override
 	protected Integer getActivePowerL3Value() {
 		return this.getActivePowerL3().get();
-	}
-
-	@Override
-	protected void setActiveProductionEnergy(Long value) {
-		this._setActiveProductionEnergy(value);
 	}
 
 	@Override

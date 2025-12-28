@@ -13,13 +13,10 @@ import io.openems.common.bridge.http.api.BridgeHttpFactory;
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
 import io.openems.common.bridge.http.api.UrlBuilder;
-import io.openems.common.types.ChannelAddress;
-import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleService;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
-import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -33,7 +30,6 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
  * <ul>
  * <li>Loadpoint identification using title/index-based fallback strategy</li>
  * <li>HTTP lifecycle management</li>
- * <li>Offset-based energy calculation to avoid jumps on restart</li>
  * <li>Per-phase energy calculation</li>
  * </ul>
  */
@@ -50,34 +46,6 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	private String configuredTitle;
 	private int configuredIndex;
 	private boolean fallbackWarningLogged = false;
-
-	/**
-	 * State machine for offset-based energy calculation.
-	 * Follows the same pattern as {@link CalculateEnergyFromPower}.
-	 */
-	protected static enum EnergyState {
-		TIMEDATA_QUERY_NOT_STARTED, TIMEDATA_QUERY_IS_RUNNING, CALCULATE_ENERGY
-	}
-
-	protected EnergyState energyState = EnergyState.TIMEDATA_QUERY_NOT_STARTED;
-
-	/**
-	 * The first chargeTotalImport value received from EVCC (in Wh).
-	 * Used as baseline for calculating energy delta.
-	 */
-	protected Long initialTotalImportWh = null;
-
-	/**
-	 * The last known ACTIVE_PRODUCTION_ENERGY value loaded from Timedata.
-	 * Used to continue from the previous value after restart.
-	 */
-	protected Long lastKnownProductionEnergy = null;
-
-	/**
-	 * Energy calculator for V2G/export (negative power).
-	 */
-	protected final CalculateEnergyFromPower calculateConsumptionEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY);
 
 	/**
 	 * Energy calculators for each phase (L1, L2, L3).
@@ -154,7 +122,6 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		}
 		switch (event.getTopic()) {
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
-			this.calculateEnergy();
 			this.calculateEnergyPerPhase();
 			break;
 		}
@@ -203,13 +170,6 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	 * @return the active power L3 in W, or null
 	 */
 	protected abstract Integer getActivePowerL3Value();
-
-	/**
-	 * Sets the active production energy.
-	 *
-	 * @param value the energy in Wh
-	 */
-	protected abstract void setActiveProductionEnergy(Long value);
 
 	/**
 	 * Returns the BridgeHttpFactory.
@@ -276,71 +236,6 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		}
 	}
 
-	/**
-	 * Updates ACTIVE_PRODUCTION_ENERGY using offset-based approach to avoid jumps.
-	 *
-	 * @param currentTotalImportWh the current chargeTotalImport value from EVCC in Wh
-	 */
-	protected void updateProductionEnergy(long currentTotalImportWh) {
-		var log = this.getLogger();
-		switch (this.energyState) {
-		case TIMEDATA_QUERY_NOT_STARTED -> {
-			this.initialTotalImportWh = currentTotalImportWh;
-
-			var td = this.getTimedata();
-			var componentId = this.id();
-			if (td == null || componentId == null) {
-				this.lastKnownProductionEnergy = 0L;
-				this.energyState = EnergyState.CALCULATE_ENERGY;
-			} else {
-				this.energyState = EnergyState.TIMEDATA_QUERY_IS_RUNNING;
-				td.getLatestValue(
-						new ChannelAddress(componentId, ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
-						.whenComplete((latestValueOpt, error) -> {
-							if (error != null) {
-								this.lastKnownProductionEnergy = 0L;
-								this.logWarn(log, "Timedata query failed, starting from 0: " + error.getMessage());
-							} else if (latestValueOpt.isPresent()) {
-								try {
-									this.lastKnownProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG,
-											latestValueOpt.get());
-									this.logInfo(log, "Loaded last known production energy from Timedata: "
-											+ this.lastKnownProductionEnergy + " Wh");
-								} catch (IllegalArgumentException e) {
-									this.lastKnownProductionEnergy = 0L;
-									this.logWarn(log, "Failed to parse last known production energy: " + e.getMessage());
-								}
-							} else {
-								this.lastKnownProductionEnergy = 0L;
-								this.logInfo(log, "No previous production energy found in Timedata, starting from 0");
-							}
-							this.energyState = EnergyState.CALCULATE_ENERGY;
-						});
-			}
-		}
-		case TIMEDATA_QUERY_IS_RUNNING -> {
-			// Wait for async Timedata response
-		}
-		case CALCULATE_ENERGY -> {
-			long deltaWh = currentTotalImportWh - this.initialTotalImportWh;
-			long baseEnergy = this.lastKnownProductionEnergy != null ? this.lastKnownProductionEnergy : 0L;
-			long newEnergy = Math.max(0, baseEnergy + deltaWh);
-			this.setActiveProductionEnergy(newEnergy);
-		}
-		}
-	}
-
-	/**
-	 * Calculate consumption energy from negative power values.
-	 */
-	protected void calculateEnergy() {
-		final var activePower = this.getActivePowerValue();
-		if (activePower == null || activePower >= 0) {
-			this.calculateConsumptionEnergy.update(0);
-		} else {
-			this.calculateConsumptionEnergy.update(Math.abs(activePower));
-		}
-	}
 
 	/**
 	 * Calculate energy per phase from phase-specific power values.
