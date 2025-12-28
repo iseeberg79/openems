@@ -35,6 +35,7 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.Phase.SinglePhase;
 import io.openems.edge.evcc.loadpoint.LoadpointConsumptionMeterEvcc;
+import io.openems.edge.evcc.loadpoint.PlugState;
 import io.openems.edge.evcs.api.Evcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
@@ -222,8 +223,8 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 
 			boolean connected = lp.has("connected") && lp.get("connected").getAsBoolean();
 			boolean charging = lp.has("charging") && lp.get("charging").getAsBoolean();
-			// Plug state: 0 = UNPLUGGED, 7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED
-			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.PLUG).setNextValue(connected ? 7 : 0);
+			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.PLUG)
+					.setNextValue(connected ? PlugState.CONNECTED : PlugState.UNPLUGGED);
 			if (!connected) {
 				this._setStatus(Status.NOT_READY_FOR_CHARGING);
 			} else if (charging) {

@@ -8,6 +8,7 @@ import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.evcc.loadpoint.PlugState;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.api.SinglePhaseMeter;
 
@@ -62,16 +63,12 @@ public interface LoadpointConsumptionSinglePhaseMeterEvcc extends SinglePhaseMet
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
-		 * Cable/Plug state for UI compatibility.
+		 * Cable/Plug state.
 		 *
 		 * <p>
-		 * Values match KEBA CableState enum:
-		 * <ul>
-		 * <li>0 = UNPLUGGED</li>
-		 * <li>7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED (connected)</li>
-		 * </ul>
+		 * Generic plug state based on EVCC's boolean "connected" status.
 		 */
-		PLUG(Doc.of(INTEGER) //
+		PLUG(Doc.of(PlugState.values()) //
 				.persistencePriority(PersistencePriority.HIGH)) //
 		;
 

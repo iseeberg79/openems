@@ -214,8 +214,8 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 
 			boolean connected = lp.has("connected") && lp.get("connected").getAsBoolean();
 			boolean charging = lp.has("charging") && lp.get("charging").getAsBoolean();
-			// Plug state: 0 = UNPLUGGED, 7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED
-			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).setNextValue(connected ? 7 : 0);
+			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG)
+					.setNextValue(connected ? PlugState.CONNECTED : PlugState.UNPLUGGED);
 			if (!connected) {
 				this._setStatus(Status.NOT_READY_FOR_CHARGING);
 			} else if (charging) {

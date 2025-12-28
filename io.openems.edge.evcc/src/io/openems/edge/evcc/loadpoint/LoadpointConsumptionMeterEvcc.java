@@ -61,16 +61,12 @@ public interface LoadpointConsumptionMeterEvcc extends ElectricityMeter, Openems
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
-		 * Cable/Plug state for UI compatibility.
+		 * Cable/Plug state.
 		 *
 		 * <p>
-		 * Values match KEBA CableState enum:
-		 * <ul>
-		 * <li>0 = UNPLUGGED</li>
-		 * <li>7 = PLUGGED_ON_EVCS_AND_ON_EV_AND_LOCKED (connected)</li>
-		 * </ul>
+		 * Generic plug state based on EVCC's boolean "connected" status.
 		 */
-		PLUG(Doc.of(INTEGER) //
+		PLUG(Doc.of(PlugState.values()) //
 				.persistencePriority(PersistencePriority.HIGH)) //
 		;
 
