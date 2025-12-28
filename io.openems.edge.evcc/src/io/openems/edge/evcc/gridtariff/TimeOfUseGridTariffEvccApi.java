@@ -10,18 +10,13 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.gson.JsonObject;
 
-import io.openems.common.timedata.DurationUnit;
-import io.openems.common.utils.JsonUtils;
-import io.openems.common.bridge.http.api.BridgeHttp;
 import io.openems.common.bridge.http.api.BridgeHttp.Endpoint;
-import io.openems.common.bridge.http.api.BridgeHttpFactory;
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpMethod;
 import io.openems.common.bridge.http.api.HttpResponse;
@@ -29,23 +24,16 @@ import io.openems.common.bridge.http.api.UrlBuilder;
 import io.openems.common.bridge.http.time.DelayTimeProvider;
 import io.openems.common.bridge.http.time.DelayTimeProviderChain;
 import io.openems.common.bridge.http.time.HttpBridgeTimeService;
-import io.openems.common.bridge.http.time.HttpBridgeTimeServiceDefinition;
-import io.openems.edge.common.component.ComponentManager;
+import io.openems.common.timedata.DurationUnit;
+import io.openems.common.utils.JsonUtils;
 import io.openems.edge.timeofusetariff.api.TimeOfUsePrices;
 
 public class TimeOfUseGridTariffEvccApi {
 
-	@Reference
-	private ComponentManager componentManager;
+	private static final Logger LOG = LoggerFactory.getLogger(TimeOfUseGridTariffEvccApi.class);
 
-	@Reference
-	private BridgeHttpFactory httpBridgeFactory;
-
-	private static final Logger log = LoggerFactory.getLogger(TimeOfUseGridTariffEvccApi.class);
-	private BridgeHttp httpBridge;
-	private HttpBridgeTimeService timeService;
-	private Clock clock;
-	private String apiUrl;
+	private final Clock clock;
+	private final String apiUrl;
 	private final AtomicReference<TimeOfUsePrices> prices = new AtomicReference<>(TimeOfUsePrices.EMPTY_PRICES);
 
 	private static class GridTariffProvider implements DelayTimeProvider {
@@ -61,41 +49,33 @@ public class TimeOfUseGridTariffEvccApi {
 
 		@Override
 		public Delay onSuccessRunDelay(HttpResponse<String> result) {
-			return DelayTimeProviderChain.fixedAtEveryFull(java.time.Clock.systemUTC(), DurationUnit.ofMinutes(15))
+			return DelayTimeProviderChain.fixedAtEveryFull(Clock.systemUTC(), DurationUnit.ofMinutes(15))
 					.getDelay();
 		}
 	}
 
-	public TimeOfUseGridTariffEvccApi() {
-		this.apiUrl = "";
-		if (this.componentManager != null) {
-			this.clock = this.componentManager.getClock();
-		}
-		if (this.httpBridgeFactory != null) {
-			this.httpBridge = this.httpBridgeFactory.get();
-			this.timeService = this.httpBridge.createService(HttpBridgeTimeServiceDefinition.INSTANCE);
-			this.timeService.subscribeTime(new GridTariffProvider(), this::createEndpoint, this::handleResponse,
-					this::handleError);
-		}
-	}
-
-	public TimeOfUseGridTariffEvccApi(Clock clock) {
-		this.apiUrl = "";
-		this.clock = clock;
-		if (this.httpBridgeFactory != null) {
-			this.httpBridge = this.httpBridgeFactory.get();
-			this.timeService = this.httpBridge.createService(HttpBridgeTimeServiceDefinition.INSTANCE);
-			this.timeService.subscribeTime(new GridTariffProvider(), this::createEndpoint, this::handleResponse,
-					this::handleError);
-		}
-	}
-
+	/**
+	 * Creates a new TimeOfUseGridTariffEvccApi.
+	 *
+	 * @param apiUrl      the EVCC API URL for grid tariff data
+	 * @param timeService the HTTP bridge time service for scheduling requests
+	 * @param clock       the clock for time operations
+	 */
 	public TimeOfUseGridTariffEvccApi(String apiUrl, HttpBridgeTimeService timeService, Clock clock) {
 		this.apiUrl = apiUrl;
 		this.clock = clock;
-		this.timeService = timeService;
-		this.timeService.subscribeTime(new GridTariffProvider(), this::createEndpoint, this::handleResponse,
+		timeService.subscribeTime(new GridTariffProvider(), this::createEndpoint, this::handleResponse,
 				this::handleError);
+	}
+
+	/**
+	 * Constructor for unit testing without HTTP service subscription.
+	 *
+	 * @param clock the clock for time operations
+	 */
+	protected TimeOfUseGridTariffEvccApi(Clock clock) {
+		this.apiUrl = "";
+		this.clock = clock;
 	}
 
 	private Endpoint createEndpoint() {
@@ -123,7 +103,7 @@ public class TimeOfUseGridTariffEvccApi {
 	 */
 	public void handleResponse(HttpResponse<String> response) throws IOException {
 		if (response.status().isSuccessful()) {
-			log.debug("prices retrieved, parsing");
+			LOG.debug("prices retrieved, parsing");
 			TimeOfUsePrices newPrices = this.parsePrices(response.data());
 
 			// prices parsed and not empty
@@ -136,17 +116,17 @@ public class TimeOfUseGridTariffEvccApi {
 				// replace already known prices if they contain future timestamps
 				if (!newPrices.isEmpty()) {
 					this.prices.set(newPrices);
-					log.debug("prices retrieved successfully");
+					LOG.debug("prices retrieved successfully");
 					return;
 				}
 			}
-			log.warn("retrieved no future prices");
+			LOG.warn("retrieved no future prices");
 		}
-		log.warn("API request failed. Retaining last known valid prices.");
+		LOG.warn("API request failed. Retaining last known valid prices.");
 	}
 
 	private void handleError(HttpError error) {
-		log.error("HTTP Error: {}", error.getMessage());
+		LOG.error("HTTP Error: {}", error.getMessage());
 	}
 
 	/**
@@ -186,7 +166,7 @@ public class TimeOfUseGridTariffEvccApi {
 				var optionalValue = JsonUtils.getAsOptionalDouble(element, "value");
 
 				if (optionalPrice.isEmpty() && optionalValue.isEmpty()) {
-					log.error("Missing 'price' or 'value' field in JSON data: {}", element);
+					LOG.error("Missing 'price' or 'value' field in JSON data: {}", element);
 					return TimeOfUsePrices.EMPTY_PRICES;
 				}
 
@@ -219,18 +199,18 @@ public class TimeOfUseGridTariffEvccApi {
 					result.put(utcTime, value);
 					break;
 				default:
-					log.error("Unexpected duration for rate: {} minutes", duration);
+					LOG.error("Unexpected duration for rate: {} minutes", duration);
 					return TimeOfUsePrices.EMPTY_PRICES;
 				}
 			}
 
 			TimeOfUsePrices prices = TimeOfUsePrices.from(result.build());
-			log.debug("parsedPrices: ", prices);
+			LOG.debug("parsedPrices: {}", prices);
 
 			return prices;
 		} catch (Exception e) {
-			log.error("Failed to parse API data: {}", e.getMessage());
-			log.debug("Exception:  {}", e);
+			LOG.error("Failed to parse API data: {}", e.getMessage());
+			LOG.debug("Exception:  {}", e);
 			return TimeOfUsePrices.EMPTY_PRICES;
 		}
 	}
@@ -243,26 +223,7 @@ public class TimeOfUseGridTariffEvccApi {
 	public TimeOfUsePrices getPrices() {
 		ZonedDateTime utcTime = ZonedDateTime.now(this.clock).withZoneSameInstant(ZoneId.of("UTC"));
 		TimeOfUsePrices prices = TimeOfUsePrices.from(utcTime, this.prices.get());
-		log.debug("Prices: ", prices);
+		LOG.debug("Prices: {}", prices);
 		return prices;
 	}
-
-	/**
-	 * Sets the HTTP bridge time service for handling network communication.
-	 *
-	 * @param timeService the HTTP bridge time service to be used.
-	 */
-	public void setTimeService(HttpBridgeTimeService timeService) {
-		this.timeService = timeService;
-	}
-
-	/**
-	 * Sets the API URL for retrieving grid tariff data.
-	 *
-	 * @param apiUrl the API endpoint URL.
-	 */
-	public void setApiUrl(String apiUrl) {
-		this.apiUrl = apiUrl;
-	}
-
 }
