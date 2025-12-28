@@ -24,10 +24,6 @@ public interface LoadpointConsumptionMeterEvcc extends ElectricityMeter, Openems
 	 * Enum for channel identifiers used in this meter.
 	 */
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-		CONSUMPTION_ENERGY(Doc.of(DOUBLE) //
-				.unit(Unit.KILOWATT_HOURS) //
-				.persistencePriority(PersistencePriority.HIGH)),
-
 		ACTIVE_SESSION_ENERGY(Doc.of(DOUBLE) //
 				.unit(Unit.WATT_HOURS) //
 				.persistencePriority(PersistencePriority.HIGH)),

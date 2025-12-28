@@ -143,13 +143,13 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 				this._setStatus(Status.READY_FOR_CHARGING);
 			}
 
-			// Cumulative energy (Keba pattern - set production, listener copies to consumption)
+			// Cumulative energy (hybrid: use meter if available, otherwise calculate from power)
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				double totalImportKwh = lp.get("chargeTotalImport").getAsDouble();
-				long energyTotal = Math.round(totalImportKwh * 1000.0);
+				long energyTotal = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
 				this._setActiveProductionEnergy(energyTotal);
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CONSUMPTION_ENERGY)
-						.setNextValue(totalImportKwh);
+				this.hasEnergyMeter = true;
+			} else {
+				this.hasEnergyMeter = false;
 			}
 
 			// Session energy

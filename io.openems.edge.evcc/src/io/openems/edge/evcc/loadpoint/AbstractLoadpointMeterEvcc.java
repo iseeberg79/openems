@@ -48,6 +48,18 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	private boolean fallbackWarningLogged = false;
 
 	/**
+	 * Flag indicating whether the charger provides an energy meter (chargeTotalImport).
+	 * If false, energy is calculated from power values.
+	 */
+	protected boolean hasEnergyMeter = false;
+
+	/**
+	 * Fallback energy calculator when charger has no energy meter.
+	 */
+	protected final CalculateEnergyFromPower calculateEnergy = new CalculateEnergyFromPower(this,
+			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
+
+	/**
 	 * Energy calculators for each phase (L1, L2, L3).
 	 */
 	protected final CalculateEnergyFromPower calculateProductionEnergyL1 = new CalculateEnergyFromPower(this,
@@ -122,6 +134,10 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		}
 		switch (event.getTopic()) {
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			// Fallback: calculate energy from power if charger has no energy meter
+			if (!this.hasEnergyMeter) {
+				this.calculateEnergy.update(this.getActivePowerValue());
+			}
 			this.calculateEnergyPerPhase();
 			break;
 		}

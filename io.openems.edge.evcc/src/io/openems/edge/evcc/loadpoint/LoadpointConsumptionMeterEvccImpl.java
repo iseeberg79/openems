@@ -138,10 +138,13 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY).setNextValue(sessionEnergy);
 			this._setEnergySession(sessionEnergy);
 
-			// Cumulative energy (Keba pattern - set production, listener copies to consumption)
+			// Cumulative energy (hybrid: use meter if available, otherwise calculate from power)
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
 				long energyTotal = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
 				this._setActiveProductionEnergy(energyTotal);
+				this.hasEnergyMeter = true;
+			} else {
+				this.hasEnergyMeter = false;
 			}
 
 			// Vehicle info
