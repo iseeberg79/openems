@@ -8,6 +8,7 @@ import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.evcc.loadpoint.PlugState;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.api.SinglePhaseMeter;
 
@@ -25,23 +26,17 @@ public interface LoadpointConsumptionSinglePhaseMeterEvcc extends SinglePhaseMet
 	 * Enum for channel identifiers used in this meter.
 	 */
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-		CONSUMPTION_ENERGY(Doc.of(DOUBLE) //
-				.unit(Unit.KILOWATT_HOURS) //
-				.persistencePriority(PersistencePriority.HIGH)),
-
 		ACTIVE_SESSION_ENERGY(Doc.of(DOUBLE) //
 				.unit(Unit.WATT_HOURS) //
 				.persistencePriority(PersistencePriority.HIGH)),
 
+		CHARGE_TOTAL_IMPORT(Doc.of(OpenemsType.LONG) //
+				.unit(Unit.WATT_HOURS) //
+				.text("Total energy imported from EVCC charger meter") //
+				.persistencePriority(PersistencePriority.HIGH)),
+
 		ACTIVE_PHASES(Doc.of(INTEGER) //
 				.persistencePriority(PersistencePriority.MEDIUM)),
-
-		/**
-		 * Vehicle battery state of charge.
-		 */
-		VEHICLE_SOC(Doc.of(INTEGER) //
-				.unit(Unit.PERCENT) //
-				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
 		 * Name of the connected vehicle.
@@ -59,6 +54,15 @@ public interface LoadpointConsumptionSinglePhaseMeterEvcc extends SinglePhaseMet
 		 * Whether charging is enabled by EVCC.
 		 */
 		ENABLED(Doc.of(OpenemsType.BOOLEAN) //
+				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * Cable/Plug state.
+		 *
+		 * <p>
+		 * Generic plug state based on EVCC's boolean "connected" status.
+		 */
+		PLUG(Doc.of(PlugState.values()) //
 				.persistencePriority(PersistencePriority.HIGH)) //
 		;
 

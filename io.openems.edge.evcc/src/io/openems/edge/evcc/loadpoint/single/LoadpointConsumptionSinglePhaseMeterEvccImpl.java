@@ -12,8 +12,6 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
-import org.osgi.service.event.Event;
-import org.osgi.service.event.EventHandler;
 import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
@@ -21,27 +19,25 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
 
-import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.types.MeterType;
-import io.openems.common.bridge.http.api.BridgeHttp;
 import io.openems.common.bridge.http.api.BridgeHttpFactory;
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
-import io.openems.common.bridge.http.api.UrlBuilder;
-import io.openems.edge.bridge.http.cycle.HttpBridgeCycleService;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
-import io.openems.edge.common.component.AbstractOpenemsComponent;
+import io.openems.edge.timedata.api.Timedata;
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.types.MeterType;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.Phase.SinglePhase;
-import io.openems.edge.evcc.loadpoint.LoadpointConsumptionMeterEvcc;
+import io.openems.edge.evcc.loadpoint.AbstractLoadpointMeterEvcc;
+import io.openems.edge.evcc.loadpoint.PlugState;
+import io.openems.edge.evcs.api.DeprecatedEvcs;
 import io.openems.edge.evcs.api.Evcs;
+import io.openems.edge.evcs.api.SocEvcs;
 import io.openems.edge.evcs.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.api.SinglePhaseMeter;
-import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
-import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
@@ -51,67 +47,36 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		property = { "type=CONSUMPTION_METERED" } //
 )
 @EventTopics(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)
-public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edge.evcc.loadpoint.AbstractLoadpointMeterEvcc
-		implements LoadpointConsumptionSinglePhaseMeterEvcc, Evcs, SinglePhaseMeter, ElectricityMeter, OpenemsComponent,
-		TimedataProvider, EventHandler {
+public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpointMeterEvcc
+		implements LoadpointConsumptionSinglePhaseMeterEvcc, SocEvcs, Evcs, DeprecatedEvcs, SinglePhaseMeter, ElectricityMeter, OpenemsComponent,
+		TimedataProvider {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	@Reference
 	private BridgeHttpFactory httpBridgeFactory;
+
 	@Reference
 	private HttpBridgeCycleServiceDefinition httpBridgeCycleServiceDefinition;
-	private BridgeHttp httpBridge;
-	private HttpBridgeCycleService cycleService;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata;
 
-	/**
-	 * Energy calculator for V2G/export (negative power).
-	 *
-	 * <p>
-	 * ACTIVE_PRODUCTION_ENERGY is set directly from EVCC's chargeTotalImport meter.
-	 * This calculator handles the rare case of negative power (V2G/export) which
-	 * would accumulate in ACTIVE_CONSUMPTION_ENERGY.
-	 */
-	private final CalculateEnergyFromPower calculateConsumptionEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY);
-
-	/**
-	 * Energy calculators for each phase (L1, L2, L3).
-	 *
-	 * <p>
-	 * These calculators provide phase-specific energy values for phase-accurate
-	 * history charts. Since this is a single-phase meter, only the configured
-	 * phase will have energy values, while the other phases will remain null/zero.
-	 * Each phase has both production and consumption energy calculators to handle
-	 * positive (consumption) and negative (production) power values respectively.
-	 */
-	private final CalculateEnergyFromPower calculateProductionEnergyL1 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L1);
-	private final CalculateEnergyFromPower calculateConsumptionEnergyL1 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L1);
-	private final CalculateEnergyFromPower calculateProductionEnergyL2 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L2);
-	private final CalculateEnergyFromPower calculateConsumptionEnergyL2 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L2);
-	private final CalculateEnergyFromPower calculateProductionEnergyL3 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L3);
-	private final CalculateEnergyFromPower calculateConsumptionEnergyL3 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L3);
-
 	private MeterType meterType;
-
 	private SinglePhase phase;
 
 	public LoadpointConsumptionSinglePhaseMeterEvccImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				Evcs.ChannelId.values(), //
+				SocEvcs.ChannelId.values(), //
+				DeprecatedEvcs.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
 				LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.values() //
 		);
+
+		// Copy production energy to consumption energy (Keba pattern)
+		DeprecatedEvcs.copyToDeprecatedEvcsChannels(this);
 
 		SinglePhaseMeter.calculateSinglePhaseFromActivePower(this);
 		SinglePhaseMeter.calculateSinglePhaseFromCurrent(this);
@@ -120,55 +85,26 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 
 	@Activate
 	private void activate(ComponentContext context, Config config) {
-		super.activate(context, config.id(), config.alias(), config.enabled());
 		this.meterType = config.type();
 		this.phase = config.phase();
-		this.initializeLoadpointReference(config.loadpointTitle(), config.loadpointIndex());
 
 		this._setChargingType(io.openems.edge.evcs.api.ChargingType.AC);
 		this._setFixedMinimumHardwarePower(config.minChargingPowerW());
 		this._setFixedMaximumHardwarePower(config.maxChargingPowerW());
 		Evcs.addCalculatePowerLimitListeners(this);
 
-		if (this.isEnabled() && this.httpBridgeFactory != null) {
-			this.httpBridge = this.httpBridgeFactory.get();
-			this.cycleService = this.httpBridge.createService(this.httpBridgeCycleServiceDefinition);
-
-			// Build JQ filter: try to match by title first, fallback to index
-			var jqFilter = this.buildLoadpointFilter(config.loadpointTitle(), config.loadpointIndex());
-			var url = UrlBuilder.parse(config.apiUrl()) //
-					.withQueryParam("jq", jqFilter) //
-					.toEncodedString();
-			this.logInfo(this.log, "Subscribing to loadpoint with filter: " + jqFilter);
-			this.cycleService.subscribeJsonEveryCycle(url, this::processHttpResult);
-		}
-
+		this.activateHttpSubscription(context, config.id(), config.alias(), config.enabled(),
+				config.apiUrl(), config.loadpointTitle(), config.loadpointIndex(), this.log);
 	}
 
 	@Override
 	@Deactivate
 	protected void deactivate() {
-		if (this.httpBridge != null) {
-			this.httpBridgeFactory.unget(this.httpBridge);
-			this.httpBridge = null;
-		}
-		super.deactivate();
+		this.deactivateHttpSubscription();
 	}
 
 	@Override
-	public void handleEvent(Event event) {
-		if (!this.isEnabled()) {
-			return;
-		}
-		switch (event.getTopic()) {
-		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
-			this.calculateEnergy();
-			this.calculateEnergyPerPhase();
-			break;
-		}
-	}
-
-	private void processHttpResult(HttpResponse<JsonElement> result, HttpError error) {
+	protected void processHttpResult(HttpResponse<JsonElement> result, HttpError error) {
 		if (error != null) {
 			this.logDebug(this.log, error.getMessage());
 			this._setChargingstationCommunicationFailed(true);
@@ -177,12 +113,10 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 		this._setChargingstationCommunicationFailed(false);
 
 		try {
-			this.logDebug(this.log, "processHttpResult");
 			var lp = getAsJsonObject(result.data());
-
-			// Check if we got the expected loadpoint and warn if fallback was used
 			this.checkLoadpointMatch(lp, this.log);
 
+			// Power
 			int chargePower = 0;
 			if (lp.has("chargePower")) {
 				chargePower = (int) Math.round(getAsDouble(lp, "chargePower"));
@@ -191,12 +125,16 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 				this._setActivePower(null);
 			}
 
+			// Phases
 			int phases = lp.has("phasesActive") ? lp.get("phasesActive").getAsInt() : 0;
 			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.ACTIVE_PHASES).setNextValue(phases);
 			this._setPhases(phases > 0 ? phases : 1);
 
+			// Plug state and status
 			boolean connected = lp.has("connected") && lp.get("connected").getAsBoolean();
 			boolean charging = lp.has("charging") && lp.get("charging").getAsBoolean();
+			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.PLUG)
+					.setNextValue(connected ? PlugState.CONNECTED : PlugState.UNPLUGGED);
 			if (!connected) {
 				this._setStatus(Status.NOT_READY_FOR_CHARGING);
 			} else if (charging) {
@@ -205,32 +143,28 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 				this._setStatus(Status.READY_FOR_CHARGING);
 			}
 
-			// Use double to maintain precision when dividing power across phases
-			double calculatedPower = chargePower;
-			if (phases > 1) {
-				calculatedPower = (double) chargePower / phases;
-			}
-
-			// Cumulative energy from EVCC meter (kWh -> Wh)
+			// Store charger's native energy meter reading (for informational purposes)
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				double totalImportKwh = lp.get("chargeTotalImport").getAsDouble();
-				long totalImportWh = Math.round(totalImportKwh * 1000.0);
-				this._setActiveProductionEnergy(totalImportWh);
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CONSUMPTION_ENERGY)
-						.setNextValue(totalImportKwh);
+				long chargeTotalImport = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(chargeTotalImport);
+			} else {
+				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
 			}
 
+			// Note: ACTIVE_PRODUCTION_ENERGY is now always calculated from power via CalculateEnergyFromPower
+			// in AbstractLoadpointMeterEvcc.handleEvent()
+
+			// Session energy
 			int sessionEnergy = lp.has("sessionEnergy") ? lp.get("sessionEnergy").getAsInt() : 0;
 			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY)
 					.setNextValue(sessionEnergy);
 			this._setEnergySession(sessionEnergy);
 
-			// Vehicle and mode information
+			// Vehicle info
 			if (lp.has("vehicleSoc") && !lp.get("vehicleSoc").isJsonNull()) {
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.VEHICLE_SOC)
-						.setNextValue((int) Math.round(lp.get("vehicleSoc").getAsDouble()));
+				this._setSoc((int) Math.round(lp.get("vehicleSoc").getAsDouble()));
 			} else {
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.VEHICLE_SOC).setNextValue(null);
+				this._setSoc(null);
 			}
 
 			if (lp.has("vehicleName") && !lp.get("vehicleName").isJsonNull()) {
@@ -250,127 +184,93 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 						.setNextValue(lp.get("enabled").getAsBoolean());
 			}
 
-			if (lp.has("chargeVoltages") && !lp.get("chargeVoltages").isJsonNull()
-				&& lp.get("chargeVoltages").isJsonArray()) {
-				var voltages = lp.getAsJsonArray("chargeVoltages");
+			// Voltage (single phase - use first available)
+			this.processVoltage(lp);
 
-				if (voltages.size() > 0 && voltages.get(0) != null && !voltages.get(0).isJsonNull()) {
-					double v1 = voltages.get(0).getAsDouble();
-					this._setVoltage((int) Math.round(v1 * 1000));
-				} else if (voltages.size() > 1 && voltages.get(1) != null && !voltages.get(1).isJsonNull()) {
-					double v2 = voltages.get(1).getAsDouble();
-					this._setVoltage((int) Math.round(v2 * 1000));
-				} else if (voltages.size() > 2 && voltages.get(2) != null && !voltages.get(2).isJsonNull()) {
-					double v3 = voltages.get(2).getAsDouble();
-					this._setVoltage((int) Math.round(v3 * 1000));
-				} else {
-					this._setVoltage(null);
-				}
-			} else {
-				this.logDebug(this.log, "chargeVoltages not provided or null – defaulting voltages");
-				this._setVoltage(230 * 1000);
-			}
-
-			if (lp.has("chargeCurrents") && !lp.get("chargeCurrents").isJsonNull()
-					&& lp.get("chargeCurrents").isJsonArray()) {
-				var currents = lp.getAsJsonArray("chargeCurrents");
-
-				if (currents.size() > 0 && currents.get(0) != null && !currents.get(0).isJsonNull()) {
-					double i1 = currents.get(0).getAsDouble();
-					this._setCurrent((int) Math.round(i1 * 1000));
-				} else if (currents.size() > 1 && currents.get(1) != null && !currents.get(1).isJsonNull()) {
-					double i2 = currents.get(1).getAsDouble();
-					this._setCurrent((int) Math.round(i2 * 1000));
-				} else if (currents.size() > 2 && currents.get(2) != null && !currents.get(2).isJsonNull()) {
-					double i3 = currents.get(2).getAsDouble();
-					this._setCurrent((int) Math.round(i3 * 1000));
-				} else {
-					this._setCurrent(null);
-				}
-			} else {
-				this.logDebug(this.log, "chargeCurrents not provided or null – estimating phase current mapping.");
-
-				var voltage = this.getVoltage().get();
-				if (phases > 0 && voltage != null) {
-					this._setCurrent((int) (calculatedPower * 1000000 / voltage));
-				} else {
-					this._setCurrent(null);
-				}
-			}
+			// Current (single phase - use first available or estimate)
+			this.processCurrent(lp, phases, chargePower);
 
 		} catch (OpenemsNamedException e) {
 			this.log.warn("Failed to parse evcc loadpoint data: {}", e.getMessage());
 		}
 	}
 
-	/**
-	 * Calculate consumption energy from negative power values.
-	 *
-	 * <p>
-	 * ACTIVE_PRODUCTION_ENERGY is set directly from EVCC's chargeTotalImport meter.
-	 * This method only handles the rare case of negative power (V2G/export) which
-	 * would accumulate in ACTIVE_CONSUMPTION_ENERGY.
-	 */
-	private void calculateEnergy() {
-		final var activePower = this.getActivePower().get();
-		if (activePower == null || activePower >= 0) {
-			this.calculateConsumptionEnergy.update(0);
+	private void processVoltage(com.google.gson.JsonObject lp) {
+		if (lp.has("chargeVoltages") && !lp.get("chargeVoltages").isJsonNull()
+				&& lp.get("chargeVoltages").isJsonArray()) {
+			var voltages = lp.getAsJsonArray("chargeVoltages");
+
+			// Use first available voltage
+			for (int i = 0; i < voltages.size(); i++) {
+				if (voltages.get(i) != null && !voltages.get(i).isJsonNull()) {
+					this._setVoltage((int) Math.round(voltages.get(i).getAsDouble() * 1000));
+					return;
+				}
+			}
+			this._setVoltage(null);
 		} else {
-			// Negative power = production/export -> accumulate in ACTIVE_CONSUMPTION_ENERGY
-			this.calculateConsumptionEnergy.update(Math.abs(activePower));
+			this._setVoltage(230 * 1000);
 		}
 	}
 
-	/**
-	 * Calculate energy per phase from phase-specific power values.
-	 *
-	 * <p>
-	 * This method calculates energy for each phase (L1, L2, L3) separately,
-	 * enabling phase-accurate history charts in the UI. For a single-phase meter,
-	 * only the configured phase will have non-zero energy values, as
-	 * SinglePhaseMeter automatically distributes the total power to the correct phase.
-	 * Positive power values are accumulated in ACTIVE_PRODUCTION_ENERGY_LX,
-	 * negative values in ACTIVE_CONSUMPTION_ENERGY_LX.
-	 */
-	private void calculateEnergyPerPhase() {
-		// L1
-		final var activePowerL1 = this.getActivePowerL1().get();
-		if (activePowerL1 == null) {
-			this.calculateProductionEnergyL1.update(null);
-			this.calculateConsumptionEnergyL1.update(null);
-		} else if (activePowerL1 > 0) {
-			this.calculateProductionEnergyL1.update(Math.abs(activePowerL1));
-			this.calculateConsumptionEnergyL1.update(0);
-		} else {
-			this.calculateProductionEnergyL1.update(0);
-			this.calculateConsumptionEnergyL1.update(Math.abs(activePowerL1));
-		}
+	private void processCurrent(com.google.gson.JsonObject lp, int phases, int chargePower) {
+		if (lp.has("chargeCurrents") && !lp.get("chargeCurrents").isJsonNull()
+				&& lp.get("chargeCurrents").isJsonArray()) {
+			var currents = lp.getAsJsonArray("chargeCurrents");
 
-		// L2
-		final var activePowerL2 = this.getActivePowerL2().get();
-		if (activePowerL2 == null) {
-			this.calculateProductionEnergyL2.update(null);
-			this.calculateConsumptionEnergyL2.update(null);
-		} else if (activePowerL2 > 0) {
-			this.calculateProductionEnergyL2.update(Math.abs(activePowerL2));
-			this.calculateConsumptionEnergyL2.update(0);
+			// Use first available current
+			for (int i = 0; i < currents.size(); i++) {
+				if (currents.get(i) != null && !currents.get(i).isJsonNull()) {
+					this._setCurrent((int) Math.round(currents.get(i).getAsDouble() * 1000));
+					return;
+				}
+			}
+			this._setCurrent(null);
 		} else {
-			this.calculateProductionEnergyL2.update(0);
-			this.calculateConsumptionEnergyL2.update(Math.abs(activePowerL2));
+			// Estimate current from power - use getNextValue() since voltage was just set
+			var voltage = this.channel(ElectricityMeter.ChannelId.VOLTAGE).getNextValue().get();
+			double calculatedPower = phases > 1 ? (double) chargePower / phases : chargePower;
+			if (phases > 0 && voltage != null) {
+				this._setCurrent((int) (calculatedPower * 1000000 / (Integer) voltage));
+			} else {
+				this._setCurrent(null);
+			}
 		}
+	}
 
-		// L3
-		final var activePowerL3 = this.getActivePowerL3().get();
-		if (activePowerL3 == null) {
-			this.calculateProductionEnergyL3.update(null);
-			this.calculateConsumptionEnergyL3.update(null);
-		} else if (activePowerL3 > 0) {
-			this.calculateProductionEnergyL3.update(Math.abs(activePowerL3));
-			this.calculateConsumptionEnergyL3.update(0);
-		} else {
-			this.calculateProductionEnergyL3.update(0);
-			this.calculateConsumptionEnergyL3.update(Math.abs(activePowerL3));
-		}
+	@Override
+	protected Logger getLogger() {
+		return this.log;
+	}
+
+	@Override
+	protected Integer getActivePowerValue() {
+		return this.getActivePower().get();
+	}
+
+	@Override
+	protected Integer getActivePowerL1Value() {
+		return this.getActivePowerL1().get();
+	}
+
+	@Override
+	protected Integer getActivePowerL2Value() {
+		return this.getActivePowerL2().get();
+	}
+
+	@Override
+	protected Integer getActivePowerL3Value() {
+		return this.getActivePowerL3().get();
+	}
+
+	@Override
+	protected BridgeHttpFactory getHttpBridgeFactory() {
+		return this.httpBridgeFactory;
+	}
+
+	@Override
+	protected HttpBridgeCycleServiceDefinition getHttpBridgeCycleServiceDefinition() {
+		return this.httpBridgeCycleServiceDefinition;
 	}
 
 	@Override
@@ -381,11 +281,6 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends io.openems.edg
 	@Override
 	public MeterType getMeterType() {
 		return this.meterType;
-	}
-
-	@Override
-	public String debugLog() {
-		return "L:" + this.getActivePower().asString();
 	}
 
 	@Override
