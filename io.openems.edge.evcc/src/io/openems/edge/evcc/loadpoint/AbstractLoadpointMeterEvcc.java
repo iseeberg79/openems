@@ -56,6 +56,7 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	/**
 	 * Energy calculators for each phase (L1, L2, L3).
 	 *
+	 * <p>
 	 * EVCS devices only consume energy (positive power), so only production energy
 	 * calculators are needed. Consumption energy is automatically provided by
 	 * DeprecatedEvcs channel listeners that copy production energy values.
@@ -246,6 +247,7 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 	/**
 	 * Calculate production energy per phase from phase-specific power values.
 	 *
+	 * <p>
 	 * EVCS devices only consume energy (always positive power). Consumption energy
 	 * is automatically provided by DeprecatedEvcs channel listeners.
 	 */
