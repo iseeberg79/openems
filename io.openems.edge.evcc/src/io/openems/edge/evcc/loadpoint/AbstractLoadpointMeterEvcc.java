@@ -55,19 +55,17 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 
 	/**
 	 * Energy calculators for each phase (L1, L2, L3).
+	 *
+	 * EVCS devices only consume energy (positive power), so only production energy
+	 * calculators are needed. Consumption energy is automatically provided by
+	 * DeprecatedEvcs channel listeners that copy production energy values.
 	 */
 	protected final CalculateEnergyFromPower calculateProductionEnergyL1 = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L1);
-	protected final CalculateEnergyFromPower calculateConsumptionEnergyL1 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L1);
 	protected final CalculateEnergyFromPower calculateProductionEnergyL2 = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L2);
-	protected final CalculateEnergyFromPower calculateConsumptionEnergyL2 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L2);
 	protected final CalculateEnergyFromPower calculateProductionEnergyL3 = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L3);
-	protected final CalculateEnergyFromPower calculateConsumptionEnergyL3 = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L3);
 
 	protected AbstractLoadpointMeterEvcc(//
 			io.openems.edge.common.channel.ChannelId[] firstInitialChannelIds, //
@@ -246,47 +244,20 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 
 
 	/**
-	 * Calculate energy per phase from phase-specific power values.
+	 * Calculate production energy per phase from phase-specific power values.
+	 *
+	 * EVCS devices only consume energy (always positive power). Consumption energy
+	 * is automatically provided by DeprecatedEvcs channel listeners.
 	 */
 	protected void calculateEnergyPerPhase() {
 		// L1
-		final var activePowerL1 = this.getActivePowerL1Value();
-		if (activePowerL1 == null) {
-			this.calculateProductionEnergyL1.update(null);
-			this.calculateConsumptionEnergyL1.update(null);
-		} else if (activePowerL1 > 0) {
-			this.calculateProductionEnergyL1.update(Math.abs(activePowerL1));
-			this.calculateConsumptionEnergyL1.update(0);
-		} else {
-			this.calculateProductionEnergyL1.update(0);
-			this.calculateConsumptionEnergyL1.update(Math.abs(activePowerL1));
-		}
+		this.calculateProductionEnergyL1.update(this.getActivePowerL1Value());
 
 		// L2
-		final var activePowerL2 = this.getActivePowerL2Value();
-		if (activePowerL2 == null) {
-			this.calculateProductionEnergyL2.update(null);
-			this.calculateConsumptionEnergyL2.update(null);
-		} else if (activePowerL2 > 0) {
-			this.calculateProductionEnergyL2.update(Math.abs(activePowerL2));
-			this.calculateConsumptionEnergyL2.update(0);
-		} else {
-			this.calculateProductionEnergyL2.update(0);
-			this.calculateConsumptionEnergyL2.update(Math.abs(activePowerL2));
-		}
+		this.calculateProductionEnergyL2.update(this.getActivePowerL2Value());
 
 		// L3
-		final var activePowerL3 = this.getActivePowerL3Value();
-		if (activePowerL3 == null) {
-			this.calculateProductionEnergyL3.update(null);
-			this.calculateConsumptionEnergyL3.update(null);
-		} else if (activePowerL3 > 0) {
-			this.calculateProductionEnergyL3.update(Math.abs(activePowerL3));
-			this.calculateConsumptionEnergyL3.update(0);
-		} else {
-			this.calculateProductionEnergyL3.update(0);
-			this.calculateConsumptionEnergyL3.update(Math.abs(activePowerL3));
-		}
+		this.calculateProductionEnergyL3.update(this.getActivePowerL3Value());
 	}
 
 	@Override
