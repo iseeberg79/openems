@@ -180,7 +180,7 @@ jobs:
 
       - name: Install UI dependencies
         working-directory: ./ui
-        run: npm ci --prefer-offline --cache ~/.npm
+        run: npm install
 
       - name: Configure Angular Cache
         working-directory: ./ui
@@ -191,19 +191,14 @@ jobs:
         run: node_modules/.bin/ng lint --fix
         continue-on-error: true
 
-      - name: TypeScript compilation check
+      - name: TypeScript compilation check (prepare-commit.sh line 190)
         working-directory: ./ui
-        run: node_modules/.bin/tsc --noEmit
+        run: node_modules/.bin/tsc
         continue-on-error: true
 
       - name: TypeScript strict check (prepare-commit.sh line 191)
         working-directory: ./ui
-        run: |
-          if [ -f "node_modules/.bin/tsc-strict" ]; then
-            node_modules/.bin/tsc-strict
-          else
-            echo "::warning::tsc-strict not available, skipping"
-          fi
+        run: node_modules/.bin/tsc-strict
         continue-on-error: true
 
       - name: Build UI Edge (prepare-commit.sh line 192)
@@ -213,9 +208,8 @@ jobs:
       - name: Build UI Backend (prepare-commit.sh line 192)
         working-directory: ./ui
         run: node_modules/.bin/ng build -c "openems,openems-backend-prod,prod"
-        continue-on-error: true
 
-      - name: Test UI
+      - name: Test UI with Code Coverage (prepare-commit.sh line 193)
         working-directory: ./ui
         run: |
           export CHROME_BIN=/usr/bin/google-chrome-stable
@@ -228,7 +222,8 @@ jobs:
           name: ui-test-results
           path: ui/coverage/
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload UI coverage reports to Codecov
+        if: always()
         uses: codecov/codecov-action@v5
         with:
           flags: ui
