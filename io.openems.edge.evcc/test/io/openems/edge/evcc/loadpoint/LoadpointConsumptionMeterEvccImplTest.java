@@ -344,7 +344,7 @@ public class LoadpointConsumptionMeterEvccImplTest {
 
 		final String json = """
 				{
-				  "title": "Loadpoint_1"
+				  "title": "Loadpoint_1",
 				  "mode": "off",
 				  "charging": false,
 				  "connected": false,
@@ -362,6 +362,9 @@ public class LoadpointConsumptionMeterEvccImplTest {
 		assertEquals(Integer.valueOf(0), sut.channel(ElectricityMeter.ChannelId.ACTIVE_POWER).getNextValue().get());
 		assertEquals(Integer.valueOf(PlugState.UNPLUGGED.getValue()), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.PLUG).getNextValue().get());
 		assertEquals(Integer.valueOf(Status.NOT_READY_FOR_CHARGING.getValue()), sut.channel(Evcs.ChannelId.STATUS).getNextValue().get());
+
+		// Verify chargeTotalImport is stored in dedicated channel
+		assertEquals(Long.valueOf(5804405), sut.channel(LoadpointConsumptionMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).getNextValue().get());
 
 		// No vehicle info when disconnected
 		assertTrue(sut.channel(SocEvcs.ChannelId.SOC).getNextValue().asOptional().isEmpty());

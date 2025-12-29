@@ -138,14 +138,16 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 			this.channel(LoadpointConsumptionMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY).setNextValue(sessionEnergy);
 			this._setEnergySession(sessionEnergy);
 
-			// Cumulative energy (hybrid: use meter if available, otherwise calculate from power)
+			// Store charger's native energy meter reading (for informational purposes)
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				long energyTotal = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
-				this._setActiveProductionEnergy(energyTotal);
-				this.hasEnergyMeter = true;
+				long chargeTotalImport = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(chargeTotalImport);
 			} else {
-				this.hasEnergyMeter = false;
+				this.channel(LoadpointConsumptionMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
 			}
+
+			// Note: ACTIVE_PRODUCTION_ENERGY is now always calculated from power via CalculateEnergyFromPower
+			// in AbstractLoadpointMeterEvcc.handleEvent()
 
 			// Vehicle info
 			if (lp.has("vehicleSoc") && !lp.get("vehicleSoc").isJsonNull()) {

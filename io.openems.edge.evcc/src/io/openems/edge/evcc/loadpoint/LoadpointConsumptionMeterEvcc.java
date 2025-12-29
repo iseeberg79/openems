@@ -28,6 +28,11 @@ public interface LoadpointConsumptionMeterEvcc extends ElectricityMeter, Openems
 				.unit(Unit.WATT_HOURS) //
 				.persistencePriority(PersistencePriority.HIGH)),
 
+		CHARGE_TOTAL_IMPORT(Doc.of(OpenemsType.LONG) //
+				.unit(Unit.WATT_HOURS) //
+				.text("Total energy imported from EVCC charger meter") //
+				.persistencePriority(PersistencePriority.HIGH)),
+
 		ACTIVE_PHASES(Doc.of(INTEGER) //
 				.persistencePriority(PersistencePriority.MEDIUM)),
 
