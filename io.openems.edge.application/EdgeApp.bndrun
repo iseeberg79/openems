@@ -214,6 +214,7 @@
 	bnd.identity;id='io.openems.edge.timeofusetariff.tibber',\
 	bnd.identity;id='io.openems.edge.victron',\
 	bnd.identity;id='io.openems.edge.weather.openmeteo',\
+
 -runbundles: \
 	Java-WebSocket;version='[1.6.0,1.6.1)',\
 	bcpkix;version='[1.83.0,1.83.1)',\
