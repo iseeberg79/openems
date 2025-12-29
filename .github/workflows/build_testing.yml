@@ -5,14 +5,12 @@ on:
   push:
     branches:
       - testing
-      - testing-weather
 
   # Run on pull requests to testing branches
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - testing
-      - testing-weather
 
   # Optional: Allow manual workflow trigger
   workflow_dispatch:
