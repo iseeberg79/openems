@@ -25,10 +25,13 @@ import io.openems.common.bridge.http.api.HttpResponse;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.MeterType;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.Phase.SinglePhase;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.evcc.loadpoint.AbstractLoadpointMeterEvcc;
 import io.openems.edge.evcc.loadpoint.PlugState;
 import io.openems.edge.evcs.api.DeprecatedEvcs;
@@ -64,6 +67,12 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 
 	private MeterType meterType;
 	private SinglePhase phase;
+
+	/** Baseline: first received chargeTotalImport value in Wh. */
+	private Long baselineChargeTotalImport = null;
+
+	/** Base production energy from Timedata (last known value before component start) in Wh. */
+	private long baseProductionEnergy = 0L;
 
 	public LoadpointConsumptionSinglePhaseMeterEvccImpl() {
 		super(//
@@ -143,16 +152,23 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 				this._setStatus(Status.READY_FOR_CHARGING);
 			}
 
-			// Store charger's native energy meter reading (for informational purposes)
+			// Use charger's native energy meter reading for ACTIVE_PRODUCTION_ENERGY
 			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
 				long chargeTotalImport = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
 				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(chargeTotalImport);
+
+				// Initialize baseline on first value
+				if (this.baselineChargeTotalImport == null) {
+					this.baselineChargeTotalImport = chargeTotalImport;
+					this.initializeBaseProductionEnergyFromTimedata();
+				}
+
+				// Calculate production energy: base + (current - baseline)
+				long productionEnergy = this.baseProductionEnergy + (chargeTotalImport - this.baselineChargeTotalImport);
+				this._setActiveProductionEnergy(productionEnergy);
 			} else {
 				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
 			}
-
-			// Note: ACTIVE_PRODUCTION_ENERGY is now always calculated from power via CalculateEnergyFromPower
-			// in AbstractLoadpointMeterEvcc.handleEvent()
 
 			// Session energy
 			int sessionEnergy = lp.has("sessionEnergy") ? lp.get("sessionEnergy").getAsInt() : 0;
@@ -291,5 +307,29 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 	@Override
 	public SinglePhase getPhase() {
 		return this.phase;
+	}
+
+	/**
+	 * Initializes the base production energy from Timedata service.
+	 *
+	 * <p>
+	 * This ensures that after a restart, the energy counter continues from
+	 * the last known value instead of starting at 0.
+	 */
+	private void initializeBaseProductionEnergyFromTimedata() {
+		var td = this.timedata;
+		if (td == null) {
+			return;
+		}
+		td.getLatestValue(new ChannelAddress(this.id(), ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+				.thenAccept(valueOpt -> {
+					if (valueOpt.isPresent()) {
+						try {
+							this.baseProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG, valueOpt.get());
+						} catch (IllegalArgumentException e) {
+							// Keep default 0
+						}
+					}
+				});
 	}
 }

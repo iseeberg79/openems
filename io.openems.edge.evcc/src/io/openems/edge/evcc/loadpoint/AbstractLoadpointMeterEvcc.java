@@ -127,8 +127,8 @@ public abstract class AbstractLoadpointMeterEvcc extends AbstractOpenemsComponen
 		}
 		switch (event.getTopic()) {
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
-			// Calculate energy from power (always active)
-			this.calculateEnergy.update(this.getActivePowerValue());
+			// Note: Total ACTIVE_PRODUCTION_ENERGY is set directly from chargeTotalImport in subclass.
+			// Per-phase energy is still calculated from power (no absolute values available from EVCC).
 			this.calculateEnergyPerPhase();
 			break;
 		}
