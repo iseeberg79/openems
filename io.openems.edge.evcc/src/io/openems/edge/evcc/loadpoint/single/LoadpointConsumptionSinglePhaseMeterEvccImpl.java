@@ -73,6 +73,9 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 	/** Base production energy from Timedata (last known value before component start) in Wh. */
 	private long baseProductionEnergy = 0L;
 
+	/** Flag indicating whether base production energy has been initialized from Timedata. */
+	private boolean baseProductionEnergyInitialized = false;
+
 	public LoadpointConsumptionSinglePhaseMeterEvccImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
@@ -158,9 +161,14 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 					this.initializeBaseProductionEnergyFromTimedata();
 				}
 
-				// Calculate production energy: base + (current - baseline)
-				long productionEnergy = this.baseProductionEnergy + (chargeTotalImport - this.baselineChargeTotalImport);
-				this._setActiveProductionEnergy(productionEnergy);
+				// Only calculate production energy after baseProductionEnergy has been initialized
+				// This prevents race condition where we calculate with baseProductionEnergy=0
+				// before the async Timedata query has completed
+				if (this.baseProductionEnergyInitialized) {
+					// Calculate production energy: base + (current - baseline)
+					long productionEnergy = this.baseProductionEnergy + (chargeTotalImport - this.baselineChargeTotalImport);
+					this._setActiveProductionEnergy(productionEnergy);
+				}
 			} else {
 				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
 			}
@@ -314,6 +322,8 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 	private void initializeBaseProductionEnergyFromTimedata() {
 		var td = this.timedata;
 		if (td == null) {
+			// No timedata available, use default and mark as initialized
+			this.baseProductionEnergyInitialized = true;
 			return;
 		}
 		td.getLatestValue(new ChannelAddress(this.id(), ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
@@ -325,6 +335,8 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 							// Keep default 0
 						}
 					}
+					// Mark as initialized after async query completes
+					this.baseProductionEnergyInitialized = true;
 				});
 	}
 }
