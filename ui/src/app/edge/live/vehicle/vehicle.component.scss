@@ -1,0 +1,46 @@
+ion-card {
+    margin: 16px;
+}
+
+ion-card-title {
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+        font-size: 1.5em;
+    }
+}
+
+ion-item {
+    --padding-start: 0;
+    --inner-padding-end: 0;
+    margin-bottom: 12px;
+
+    ion-icon {
+        font-size: 1.5em;
+        margin-right: 12px;
+    }
+
+    ion-label {
+        h2 {
+            font-size: 0.9em;
+            font-weight: 500;
+            color: var(--ion-color-medium);
+            margin-bottom: 4px;
+        }
+
+        .value {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 0;
+        }
+    }
+
+    ion-progress-bar {
+        margin-top: 8px;
+        height: 8px;
+        border-radius: 4px;
+    }
+}

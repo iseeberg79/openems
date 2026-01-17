@@ -1,0 +1,62 @@
+<ion-card>
+    <ion-card-header>
+        <ion-card-title>
+            <ion-icon name="car-sport"></ion-icon>
+            {{ getVehicleName() || 'Vehicle' }}
+        </ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+        <!-- State of Charge -->
+        <ion-item lines="none">
+            <ion-icon [name]="getBatteryIcon()" [color]="getBatteryColor()" slot="start"></ion-icon>
+            <ion-label>
+                <h2>State of Charge</h2>
+                <p *ngIf="getSoc() !== null" class="value">{{ getSoc() }}%</p>
+                <p *ngIf="getSoc() === null" class="value">--</p>
+            </ion-label>
+            <!-- Progress bar -->
+            <ion-progress-bar *ngIf="getSoc() !== null" [value]="getSoc()! / 100" [color]="getBatteryColor()"></ion-progress-bar>
+        </ion-item>
+
+        <!-- Range -->
+        <ion-item lines="none" *ngIf="getRange() !== null && getRange()! > 0">
+            <ion-icon name="speedometer" color="primary" slot="start"></ion-icon>
+            <ion-label>
+                <h2>Range</h2>
+                <p class="value">{{ getRange() }} km</p>
+            </ion-label>
+        </ion-item>
+
+        <!-- Connection Status -->
+        <ion-item lines="none">
+            <ion-icon [name]="getConnected() ? 'checkmark-circle' : 'close-circle'"
+                      [color]="getConnected() ? 'success' : 'medium'"
+                      slot="start"></ion-icon>
+            <ion-label>
+                <h2>Connected</h2>
+                <p class="value">{{ getConnected() ? 'Yes' : 'No' }}</p>
+            </ion-label>
+        </ion-item>
+
+        <!-- Charging Status -->
+        <ion-item lines="none" *ngIf="getConnected()">
+            <ion-icon [name]="getCharging() ? 'flash' : 'flash-off'"
+                      [color]="getCharging() ? 'warning' : 'medium'"
+                      slot="start"></ion-icon>
+            <ion-label>
+                <h2>Charging</h2>
+                <p class="value">{{ getCharging() ? 'Active' : 'Idle' }}</p>
+            </ion-label>
+        </ion-item>
+
+        <!-- Odometer (optional, only if > 0) -->
+        <ion-item lines="none" *ngIf="getOdometer() !== null && getOdometer()! > 0">
+            <ion-icon name="analytics" color="medium" slot="start"></ion-icon>
+            <ion-label>
+                <h2>Odometer</h2>
+                <p class="value">{{ getOdometer() | number }} km</p>
+            </ion-label>
+        </ion-item>
+    </ion-card-content>
+</ion-card>
