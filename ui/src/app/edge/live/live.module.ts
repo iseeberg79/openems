@@ -49,6 +49,7 @@ import { FlatComponent as EvcsClusterApiFlatComponent } from "./Multiple/evcs-ap
 import { ChartComponent as EvcsClusterApiChartComponent } from "./Multiple/evcs-api-cluster/modal/chart/chart";
 import { ModalComponent as EvcsClusterApiModalComponent } from "./Multiple/evcs-api-cluster/modal/modal";
 import { NavigationInfoComponent } from "./navigation-info/navigation-info";
+import { VehicleModule } from "./vehicle/vehicle.module";
 
 @NgModule({
     imports: [
@@ -74,6 +75,7 @@ import { NavigationInfoComponent } from "./navigation-info/navigation-info";
         EdgeOfflineModule,
         EnergymonitorModule,
         WeatherModule,
+        VehicleModule,
         ModalModule,
         SharedModule,
         PullToRefreshComponent,

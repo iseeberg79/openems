@@ -88,6 +88,10 @@
                 <oe-multiple-evcs-api-cluster [componentId]="widget.componentId"></oe-multiple-evcs-api-cluster>
               </ion-col>
 
+              <ion-col *ngSwitchCase="'Vehicle.Evcc'" size="12" size-lg="6" class="ion-no-padding">
+                <vehicle [componentId]="widget.componentId"></vehicle>
+              </ion-col>
+
               <ion-col *ngSwitchCase="'Controller.ChannelThreshold'" size="12" size-lg="6" class="ion-no-padding">
                 <Controller_Channelthreshold [componentId]="widget.componentId"></Controller_Channelthreshold>
               </ion-col>
