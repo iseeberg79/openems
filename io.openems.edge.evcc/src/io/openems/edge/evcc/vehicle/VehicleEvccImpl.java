@@ -47,7 +47,6 @@ public class VehicleEvccImpl extends AbstractOpenemsComponent implements Vehicle
 	private HttpBridgeCycleService cycleService;
 
 	private String configuredVehicleName;
-	private int loadpointIndex;
 
 	public VehicleEvccImpl() {
 		super(//
@@ -60,17 +59,18 @@ public class VehicleEvccImpl extends AbstractOpenemsComponent implements Vehicle
 	private void activate(ComponentContext context, Config config) {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		this.configuredVehicleName = config.vehicleName();
-		this.loadpointIndex = config.loadpointIndex();
 
 		if (config.enabled() && this.httpBridgeFactory != null) {
 			this.httpBridge = this.httpBridgeFactory.get();
 			this.cycleService = this.httpBridge.createService(this.httpBridgeCycleServiceDefinition);
 
-			var jqFilter = ".loadpoints[" + this.loadpointIndex + "]";
+			// Query EVCC for loadpoint with matching vehicle name
+			var escapedName = this.configuredVehicleName.replace("\\", "\\\\").replace("\"", "\\\"");
+			var jqFilter = ".loadpoints[] | select(.vehicleName == \"" + escapedName + "\")";
 			var url = UrlBuilder.parse(config.apiUrl()) //
 					.withQueryParam("jq", jqFilter) //
 					.toEncodedString();
-			this.logInfo(this.log, "Subscribing to vehicle data from loadpoint " + this.loadpointIndex);
+			this.logInfo(this.log, "Subscribing to vehicle data for: " + this.configuredVehicleName);
 			this.cycleService.subscribeJsonEveryCycle(url, this::processHttpResult);
 		}
 	}

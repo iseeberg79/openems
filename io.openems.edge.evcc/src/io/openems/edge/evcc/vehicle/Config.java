@@ -20,11 +20,8 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "EVCC API URL", description = "URL of the EVCC API (e.g. http://controller:7070/api/state)")
 	String apiUrl() default "http://controller:7070/api/state";
 
-	@AttributeDefinition(name = "Vehicle Name", description = "Name of the vehicle as configured in EVCC (e.g. 'e-Golf')")
+	@AttributeDefinition(name = "Vehicle Name", description = "Name of the vehicle as configured in EVCC (e.g. 'e-Golf'). Used to automatically find the vehicle in EVCC loadpoints.")
 	String vehicleName();
-
-	@AttributeDefinition(name = "Loadpoint Index", description = "Index of the loadpoint this vehicle is connected to (0-based, default: 0)")
-	int loadpointIndex() default 0;
 
 	String webconsole_configurationFactory_nameHint() default "Vehicle EVCC [{id}]";
 }
