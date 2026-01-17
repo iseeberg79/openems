@@ -26,7 +26,9 @@ import io.openems.common.bridge.http.api.HttpResponse;
 import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.MeterType;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.type.Phase.SinglePhase;
@@ -64,6 +66,10 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 
 	private MeterType meterType;
 	private SinglePhase phase;
+
+	private Long baselineChargeTotalImport = null;
+	private long baseProductionEnergy = 0L;
+	private boolean baseProductionEnergyInitialized = false;
 
 	public LoadpointConsumptionSinglePhaseMeterEvccImpl() {
 		super(//
@@ -139,22 +145,29 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 				this._setStatus(Status.READY_FOR_CHARGING);
 			}
 
-			// Store charger's native energy meter reading (for informational purposes)
-			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
-				long chargeTotalImport = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(chargeTotalImport);
-			} else {
-				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
-			}
-
-			// Note: ACTIVE_PRODUCTION_ENERGY is now always calculated from power via CalculateEnergyFromPower
-			// in AbstractLoadpointMeterEvcc.handleEvent()
-
 			// Session energy
 			int sessionEnergy = lp.has("sessionEnergy") ? lp.get("sessionEnergy").getAsInt() : 0;
 			this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.ACTIVE_SESSION_ENERGY)
 					.setNextValue(sessionEnergy);
 			this._setEnergySession(sessionEnergy);
+
+			// Hybrid energy calculation: prefer native meter when available
+			if (lp.has("chargeTotalImport") && !lp.get("chargeTotalImport").isJsonNull()) {
+				long chargeTotalImport = Math.round(lp.get("chargeTotalImport").getAsDouble() * 1000.0);
+				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(chargeTotalImport);
+
+				if (this.baselineChargeTotalImport == null) {
+					this.baselineChargeTotalImport = chargeTotalImport;
+					this.initializeBaseProductionEnergyFromTimedata();
+				}
+
+				if (this.baseProductionEnergyInitialized) {
+					long productionEnergy = this.baseProductionEnergy + (chargeTotalImport - this.baselineChargeTotalImport);
+					this._setActiveProductionEnergy(productionEnergy);
+				}
+			} else {
+				this.channel(LoadpointConsumptionSinglePhaseMeterEvcc.ChannelId.CHARGE_TOTAL_IMPORT).setNextValue(null);
+			}
 
 			// Vehicle info
 			if (lp.has("vehicleSoc") && !lp.get("vehicleSoc").isJsonNull()) {
@@ -287,5 +300,24 @@ public class LoadpointConsumptionSinglePhaseMeterEvccImpl extends AbstractLoadpo
 	@Override
 	public SinglePhase getPhase() {
 		return this.phase;
+	}
+
+	private void initializeBaseProductionEnergyFromTimedata() {
+		var td = this.timedata;
+		if (td == null) {
+			this.baseProductionEnergyInitialized = true;
+			return;
+		}
+		td.getLatestValue(new ChannelAddress(this.id(), ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+				.thenAccept(valueOpt -> {
+					if (valueOpt.isPresent()) {
+						try {
+							this.baseProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG, valueOpt.get());
+						} catch (IllegalArgumentException e) {
+							// Keep default 0
+						}
+					}
+					this.baseProductionEnergyInitialized = true;
+				});
 	}
 }
