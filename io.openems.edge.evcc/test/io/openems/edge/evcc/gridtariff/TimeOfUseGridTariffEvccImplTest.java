@@ -29,7 +29,7 @@ public class TimeOfUseGridTariffEvccImplTest {
 	public void test() throws Exception {
 		final var sut = new TimeOfUseGridTariffEvccImpl();
 		final var clock = createDummyClock();
-		final var dummyMeta = new DummyMeta("foo0") //
+		final var dummyMeta = new DummyMeta() //
 				.withCurrency(EUR);
 
 		// simulate response

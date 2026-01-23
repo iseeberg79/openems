@@ -111,7 +111,7 @@ public class TimeOfUseGridTariffEvccApi {
 				ZonedDateTime now = ZonedDateTime.now(this.clock);
 				ZonedDateTime lastFullHour = now.withMinute(0).withSecond(0).withNano(0);
 				ZonedDateTime utcTime = lastFullHour.withZoneSameInstant(ZoneId.of("UTC"));
-				newPrices = TimeOfUsePrices.from(utcTime, newPrices);
+				newPrices = TimeOfUsePrices.from(utcTime.toInstant(), newPrices);
 
 				// replace already known prices if they contain future timestamps
 				if (!newPrices.isEmpty()) {
@@ -151,7 +151,7 @@ public class TimeOfUseGridTariffEvccApi {
 	 */
 	public TimeOfUsePrices parsePrices(String jsonData) {
 		try {
-			var result = ImmutableSortedMap.<ZonedDateTime, Double>naturalOrder();
+			var result = ImmutableSortedMap.<java.time.Instant, Double>naturalOrder();
 			
 			JsonObject jsonObject = JsonUtils.parseToJsonObject(jsonData);
 	        JsonObject resultObject = jsonObject.has("result") 
@@ -186,17 +186,17 @@ public class TimeOfUseGridTariffEvccApi {
 
 				switch ((int) duration) {
 				case 60:
-					result.put(utcTime, value);
-					result.put(utcTime.plusMinutes(15), value);
-					result.put(utcTime.plusMinutes(30), value);
-					result.put(utcTime.plusMinutes(45), value);
+					result.put(utcTime.toInstant(), value);
+					result.put(utcTime.plusMinutes(15).toInstant(), value);
+					result.put(utcTime.plusMinutes(30).toInstant(), value);
+					result.put(utcTime.plusMinutes(45).toInstant(), value);
 					break;
 				case 30:
-					result.put(utcTime, value);
-					result.put(utcTime.plusMinutes(15), value);
+					result.put(utcTime.toInstant(), value);
+					result.put(utcTime.plusMinutes(15).toInstant(), value);
 					break;
 				case 15:
-					result.put(utcTime, value);
+					result.put(utcTime.toInstant(), value);
 					break;
 				default:
 					LOG.error("Unexpected duration for rate: {} minutes", duration);
@@ -222,7 +222,7 @@ public class TimeOfUseGridTariffEvccApi {
 	 */
 	public TimeOfUsePrices getPrices() {
 		ZonedDateTime utcTime = ZonedDateTime.now(this.clock).withZoneSameInstant(ZoneId.of("UTC"));
-		TimeOfUsePrices prices = TimeOfUsePrices.from(utcTime, this.prices.get());
+		TimeOfUsePrices prices = TimeOfUsePrices.from(utcTime.toInstant(), this.prices.get());
 		LOG.debug("Prices: {}", prices);
 		return prices;
 	}
