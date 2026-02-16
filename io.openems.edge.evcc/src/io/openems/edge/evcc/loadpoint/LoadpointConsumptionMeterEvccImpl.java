@@ -70,6 +70,9 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	/** Flag indicating whether base production energy has been initialized from Timedata. */
 	private boolean baseProductionEnergyInitialized = false;
 
+	/** Flag indicating whether Timedata query was attempted but service was not available. */
+	private boolean timedataQueryPending = false;
+
 	public LoadpointConsumptionMeterEvccImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
@@ -152,6 +155,13 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 				// Initialize baseline on first value
 				if (this.baselineChargeTotalImport == null) {
 					this.baselineChargeTotalImport = chargeTotalImport;
+					this.initializeBaseProductionEnergyFromTimedata();
+				}
+
+				// Retry Timedata query if it was pending (service was not available earlier)
+				if (this.timedataQueryPending && this.timedata != null) {
+					this.log.info("[{}] Timedata service now available - retrying query", this.id());
+					this.timedataQueryPending = false;
 					this.initializeBaseProductionEnergyFromTimedata();
 				}
 
@@ -371,21 +381,31 @@ public class LoadpointConsumptionMeterEvccImpl extends AbstractLoadpointMeterEvc
 	private void initializeBaseProductionEnergyFromTimedata() {
 		var td = this.timedata;
 		if (td == null) {
-			// No timedata available, use default and mark as initialized
-			this.baseProductionEnergyInitialized = true;
+			this.log.info("[{}] Timedata service not yet available - will retry when available", this.id());
+			this.timedataQueryPending = true;
 			return;
 		}
-		td.getLatestValue(new ChannelAddress(this.id(), ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id()))
+		var channelAddress = new ChannelAddress(this.id(), ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY.id());
+		this.log.info("[{}] Querying Timedata for last energy value: {}", this.id(), channelAddress);
+
+		td.getLatestValue(channelAddress)
 				.thenAccept(valueOpt -> {
 					if (valueOpt.isPresent()) {
 						try {
 							this.baseProductionEnergy = TypeUtils.getAsType(OpenemsType.LONG, valueOpt.get());
+							this.log.info("[{}] Restored energy from Timedata: {} Wh", this.id(), this.baseProductionEnergy);
 						} catch (IllegalArgumentException e) {
-							// Keep default 0
+							this.log.warn("[{}] Failed to parse Timedata value: {}", this.id(), e.getMessage());
 						}
+					} else {
+						this.log.warn("[{}] No previous energy value found in Timedata - starting at 0", this.id());
 					}
-					// Mark as initialized after async query completes
 					this.baseProductionEnergyInitialized = true;
+				})
+				.exceptionally(ex -> {
+					this.log.error("[{}] Error querying Timedata: {}", this.id(), ex.getMessage());
+					this.baseProductionEnergyInitialized = true;
+					return null;
 				});
 	}
 }
